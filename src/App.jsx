@@ -1,5 +1,7 @@
 import { appRequest } from "./api"
-import DumpReview from "./components/Onboarding/DumpReview-dep"
+import { useState } from "react"
+import DumpReview from "./components/Onboarding/DumpReview"
+import OnboardingForm from "./components/Onboarding/OnboardingForm"
 function App () {
     const [view, setView]                     = useState('onboarding')
     const [onboardingResponse, setResponse]   = useState(null)
