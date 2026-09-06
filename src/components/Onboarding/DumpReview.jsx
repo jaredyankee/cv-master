@@ -23,7 +23,7 @@ function applyRevision(obj, original, replacement) {
     return obj
 }
 
-export default function DumpReview () {
+export default function DumpReview ({ response }) {
     const { resume_dump, revisions = [], questions = [] } = response;
 
     // editable text for each revision (pre-filled with AI suggestion)
@@ -156,9 +156,9 @@ export default function DumpReview () {
             )}
 
             <div className="review-footer">
-            <button className="finalize-btn" onClick={handleFinalize}>
-                Finalize Profile →
-            </button>
+                <button className="finalize-btn" onClick={handleFinalize}>
+                    Finalize Profile →
+                </button>
             </div>
 
         </div>

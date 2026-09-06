@@ -1,7 +1,7 @@
 export const appRequest = async (endpoint, method, headers, payload) => {
     if (!endpoint) {
         return {
-            success: false,
+            ok: false,
             message: "endpoint is missing from request"
         }
     }
@@ -32,7 +32,7 @@ export const appRequest = async (endpoint, method, headers, payload) => {
         body: JSON.stringify(payload)
     }
 
-    response = await fetch(requestUrl, requestData);
+    const response = await fetch(requestUrl, requestData);
 
     return response;
     
