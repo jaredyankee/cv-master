@@ -1,76 +1,51 @@
-import { fnRegistry } from "../../private/registry/registry";
+import { fnRegistry } from "../../private/registry/registry.js";
+import { CORS } from "../../private/cors/cors.js";
 
 /**
- *  @fn resume-dump 
- *  - expected request contains
- * 
- *  Headers
- *      - 'x-api-key' => anthropic API key, this is self serve
- *      - 'x-request-type' => @todo - define enum
- *          'get', 'post', 'put'
+ * @fn resume-dump
+ * GET endpoint — polling target while resume-dump-background processes the AI call.
+ *
+ * GET /resume-dump                       → 404 (nothing to get without ping)
+ * GET /resume-dump?ping=true&user_id=... → { ready: false }   (still processing)
+ *                                        → { ready: true, data: {...} } (done)
  */
-export async function handler (event, context) {
-    console.log("resumne-dump");
-    const headers = event.headers;
-    const method = event.httpMethod;
+export async function handler(event, context) {
+    const cors = CORS(event);
+    if (cors?.statusCode) {
+        console.log("Returning cors");
+        return cors;
+    }
 
-    /**
-     * The functions on these endpoints will never take params as function
-     *  instead, derive the value needed for the params or add the keys to payload matching the shape required for the fn
-     */
+    const method = event.httpMethod;
     const params = event.queryStringParameters;
 
-    if (method == "GET") {
-        // pending
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                message: "Request was successful but there is nothing to get!"
-            })
-        };
-    } else if (method == "DELETE") {
-        // delete doesn't come with body so group it here
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                message: "Request was successful but there is nothing to delete!"
-            })
-        };
+    if (method !== "GET") {
+        return { statusCode: 405, body: JSON.stringify({ message: "Method not allowed" }) };
     }
-    // apiKey is required for POST and PUT requests because they go through anthropic api
-    if (!headers["x-api-key"]) {
-        return {
-            statusCode: 401,
-            body: JSON.stringify({ message: "No API key in request" })
-        }
-    }
-    if (!event?.body) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: "No body found in POST/PUT request" })
-        }
-    }
-    const body = JSON.parse(event?.body);
 
-    if (method == "POST") {
-        // new resume dump
-        let fn = fnRegistry('registry-dump:POST');
-        try {
-            const repsonse = await fn(apiKey, payload);
-            
-        } catch (err) {
-            console.error("An error occurred...", err);
+    if (!params?.ping) {
+        return { statusCode: 404, body: JSON.stringify({ message: "Not found" }) };
+    }
+
+    if (!params?.user_id) {
+        return { statusCode: 400, body: JSON.stringify({ message: "user_id is required" }) };
+    }
+
+    const fn = fnRegistry("registry-dump:GET");
+    try {
+        const result = await fn(params.user_id);
+        if (!result) {
             return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: err
-                })
+                statusCode: 200,
+                body: JSON.stringify({ ready: false })
             };
         }
-        
-    } else if (method == "PUT") {
-
-    } 
-
-
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ ready: true, data: result })
+        };
+    } catch (err) {
+        console.error("Error polling resume-dump:", err);
+        return { statusCode: 500, body: JSON.stringify({ message: "Internal server error" }) };
+    }
 }
