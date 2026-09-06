@@ -21,6 +21,11 @@ export const appRequest = async (endpoint, method, headers, payload) => {
 
     let requestUrl = `${baseUrl}${endpoint}`;
 
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': "application/json",
+        ...headers,
+    }
     const requestData = {
         method,
         headers,
