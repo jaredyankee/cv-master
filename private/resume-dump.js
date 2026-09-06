@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
-import { SYSTEM_PROMPTS } from "./registry/prompts"
-import { RESUME_DUMP_TOOL } from "./registry/schema"
+import { SYSTEM_PROMPTS } from "./registry/prompts.js"
+import { RESUME_DUMP_TOOL } from "./registry/schema.js"
 
 /**
  * @param {string} apiKey
@@ -9,7 +9,7 @@ import { RESUME_DUMP_TOOL } from "./registry/schema"
 export const createResumeDump = async (apiKey, payload) => {
     if (!payload?.resume_dump) {
         return {
-            success: false,
+            ok: false,
             error: { status: 400, message: "Resume dump is missing" }
         };
     }
@@ -34,7 +34,7 @@ export const createResumeDump = async (apiKey, payload) => {
         }
 
         return {
-            success: false,
+            ok: false,
             error: { status: 500, message: "Model did not return a tool_use block" }
         };
 
