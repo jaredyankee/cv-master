@@ -6,6 +6,13 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin  = "http://localhost:5173"
+    Access-Control-Allow-Methods = "GET, POST, PUT, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, x-api-key, X-Api-Key"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
