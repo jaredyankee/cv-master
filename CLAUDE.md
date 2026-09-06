@@ -2,7 +2,7 @@
 Manages and builds resumes for users based on a master "resume-dump" of their accomplishments and experience. User enters a job description, AI model assesses the fit based on the resume dump and returns a resume build from pieces of the resume dump
 
 ## Claude's role
-Create the front-end design for CV master and help concretely define schemas. Do not make changes outside of the front-end, and documentaion. 
+Create the front-end design for CV master and help concretely define schemas.
 
 ## resume dump
 Still figuring out the exact structure, probably something like; please advise if necessary.
