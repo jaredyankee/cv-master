@@ -2,12 +2,22 @@ import { appRequest } from "./api"
 import { useState } from "react"
 import DumpReview from "./components/Onboarding/DumpReview"
 import OnboardingForm from "./components/Onboarding/OnboardingForm"
+import Dashboard from "./components/Dashboard/Dashboard"
+import "./App.css"
+
+const makeId = () =>
+    (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
 function App () {
-    const [view, setView]                     = useState('onboarding')
-    const [onboardingResponse, setOnboardingResponse]   = useState(null)
-    const [resumeDump, setResumeDump]         = useState(null)  // finalized dump
-    const [isLoading, setIsLoading]           = useState(false)
-    
+    const [view, setView]                             = useState('onboarding')
+    const [onboardingResponse, setOnboardingResponse] = useState(null)
+    const [resumeDump, setResumeDump]                 = useState(null)  // finalized dump
+    const [answeredQuestions, setAnsweredQuestions]   = useState([])
+    const [applications, setApplications]             = useState([])    // newest first
+    const [isLoading, setIsLoading]                   = useState(false)
+
 
     async function handleDumpSubmit(dumpText, apiKey) {
         setIsLoading(true)
@@ -45,26 +55,47 @@ function App () {
         }
     }
 
-    // handle reviewed dump 
-    function handleReviewComplete(finalDump, answeredQuestions) {
+    // handle reviewed dump
+    function handleReviewComplete(finalDump, answered = []) {
         setResumeDump(finalDump)
+        setAnsweredQuestions(answered.filter(q => q.answer?.trim()))
         setView('dashboard')
     }
 
-    // views 
-    if (view === 'review' && onboardingResponse) {
-    return (
-        <DumpReview
-            response={onboardingResponse}
-            onComplete={handleReviewComplete}
-            onBack={() => setView('onboarding')}
-        />
-    )
+    // @todo POST to a job-application function (resume dump + JD + notes + questions)
+    // and store the JobApplicationResponse. Until then applications live in memory.
+    function handleCreateApplication(input) {
+        const application = {
+            id:        makeId(),
+            createdAt: new Date().toISOString(),
+            ...input,          // { jobDescription, notes, questions }
+            response:  null,   // JobApplicationResponse once analyzed
+        }
+        setApplications(prev => [application, ...prev])
+        return application
     }
 
-    if (view === 'dashboard') {
-        // @todo: Dashboard component
-        return <div className="placeholder">Dashboard coming soon.</div>
+    // views
+    if (view === 'review' && onboardingResponse) {
+        return (
+            <DumpReview
+                response={onboardingResponse}
+                onComplete={handleReviewComplete}
+                onBack={() => setView('onboarding')}
+            />
+        )
+    }
+
+    if (view === 'dashboard' && resumeDump) {
+        return (
+            <Dashboard
+                resumeDump={resumeDump}
+                answeredQuestions={answeredQuestions}
+                applications={applications}
+                onCreateApplication={handleCreateApplication}
+                onEditProfile={() => setView(onboardingResponse ? 'review' : 'onboarding')}
+            />
+        )
     }
 
     return (

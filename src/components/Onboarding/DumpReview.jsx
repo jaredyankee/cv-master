@@ -23,7 +23,15 @@ function applyRevision(obj, original, replacement) {
     return obj
 }
 
-export default function DumpReview ({ response }) {
+/**
+ * Step 2 of onboarding — the user reviews AI revisions and answers questions.
+ *
+ * Props:
+ *   response:   OnboardingResponse — { resume_dump, revisions, questions }
+ *   onComplete(finalDump, answeredQuestions) — called on "Finalize Profile"
+ *   onBack()    — return to the onboarding form
+ */
+export default function DumpReview ({ response, onComplete, onBack }) {
     const { resume_dump, revisions = [], questions = [] } = response;
 
     // editable text for each revision (pre-filled with AI suggestion)
