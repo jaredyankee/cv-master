@@ -2,6 +2,20 @@ import { sql } from "./db.js"
 import { encrypt, decrypt } from "../lib/crypto.js"
 
 /**
+ * Makes sure a users row exists for this id so that rows in resume_dumps /
+ * resume_dump_diffs can reference it. Never touches an existing api key.
+ *
+ * @param {string} user_id
+ */
+export const ensureUser = async (user_id) => {
+    await sql`
+        INSERT INTO users (id)
+        VALUES (${user_id})
+        ON CONFLICT (id) DO NOTHING
+    `
+}
+
+/**
  * Encrypts and stores a user's Anthropic API key.
  * Upserts — safe to call on every onboarding submit.
  *

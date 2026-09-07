@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { SYSTEM_PROMPTS } from "../registry/prompts.js"
 import { insertResumeDump, insertResumeDumpDiff, getResumeDumpResult } from "../db/resume-dump.js";
-import { saveApiKey } from "../db/users.js";
+import { ensureUser, saveApiKey } from "../db/users.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
 /**
  * 
@@ -108,8 +108,20 @@ export const createResumeDump = async (apiKey, payload) => {
             let data = toolUse.input;
 
             // database updates
-            await saveApiKey(userId, apiKey);
-            await insertResumeDump(userId, data.resume_dump);
+            // 1. users row must exist before resume_dumps can reference it
+            await ensureUser(userId);
+
+            // 2. store the encrypted key — non-fatal. If ENCRYPTION_KEY is
+            //    misconfigured the dump should still be saved; the user just
+            //    re-enters the key next time.
+            try {
+                await saveApiKey(userId, apiKey);
+            } catch (keyErr) {
+                console.error("Could not store the API key (continuing):", keyErr.message);
+            }
+
+            // 3. the dump and its review diff
+            const dump = await insertResumeDump(userId, data.resume_dump);
             await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
 
 
