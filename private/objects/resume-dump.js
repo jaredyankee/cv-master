@@ -107,7 +107,7 @@ export const createResumeDump = async (apiKey, payload) => {
             let data = toolUse.input;
 
             // database updates
-            await insertResumeDump(userId, data.resume_dump);
+            const dump = await insertResumeDump(userId, data.resume_dump);
             await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
             await saveApiKey(userId, apiKey);
 

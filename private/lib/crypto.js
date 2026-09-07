@@ -24,14 +24,45 @@ const ALGORITHM  = 'aes-256-gcm'
 const IV_BYTES   = 12  // 96-bit IV — GCM spec recommendation
 const KEY_BYTES  = 32  // 256-bit key
 
+const HEX_LEN = KEY_BYTES * 2
+const HEX_RE  = /^[0-9a-f]+$/i
+const GEN_CMD = `node -e "console.log(require('crypto').randomBytes(${KEY_BYTES}).toString('hex'))"`
+
+/**
+ * Reads ENCRYPTION_KEY from the environment and returns it as a 32-byte Buffer.
+ *
+ * The error message says *which* check failed (missing / wrong length / not hex)
+ * without ever printing the value, so a bad deploy is diagnosable from the logs.
+ * Surrounding whitespace and wrapping quotes are tolerated — both are easy to
+ * pick up when pasting into a dashboard or `netlify env:set`.
+ */
 function getKey() {
-    const hex = process.env.ENCRYPTION_KEY
-    if (!hex || hex.length !== KEY_BYTES * 2) {
+    const raw = process.env.ENCRYPTION_KEY
+
+    if (raw === undefined || raw === '') {
         throw new Error(
-            `ENCRYPTION_KEY must be a ${KEY_BYTES * 2}-char hex string. ` +
-            `Generate one with: node -e "console.log(require('crypto').randomBytes(${KEY_BYTES}).toString('hex'))"`
+            'ENCRYPTION_KEY is not set in this runtime. ' +
+            'It must be defined where the function runs (e.g. Netlify → Site configuration → ' +
+            'Environment variables, with the Functions scope) and the site redeployed. ' +
+            `Generate one with: ${GEN_CMD}`
         )
     }
+
+    const hex = raw.trim().replace(/^["']|["']$/g, '')
+
+    if (hex.length !== HEX_LEN) {
+        throw new Error(
+            `ENCRYPTION_KEY must be exactly ${HEX_LEN} hex chars but the value in this runtime is ` +
+            `${hex.length} chars long. Generate one with: ${GEN_CMD}`
+        )
+    }
+    if (!HEX_RE.test(hex)) {
+        throw new Error(
+            `ENCRYPTION_KEY has the right length but contains non-hex characters. ` +
+            `Generate one with: ${GEN_CMD}`
+        )
+    }
+
     return Buffer.from(hex, 'hex')
 }
 
