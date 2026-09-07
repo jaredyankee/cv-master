@@ -5,7 +5,8 @@ export const CORS = (event, page = null) => {
     // for internal use
     const allowed = [
         'http://localhost:5173',
-        'http://localhost:5174'
+        'http://localhost:5174',
+        'https://cvmaster-jy.netlify.app'
     ];
 
     console.log("Origin: ", event.headers.origin);

@@ -13,6 +13,8 @@ export const appRequest = async (endpoint, method, headers, payload) => {
     } else {
         baseUrl = "https://cvmaster-jy.netlify.app/.netlify/functions";
     }
+    console.log(import.meta.env.VITE_CURRENT_ENVIRONMENT);
+    console.log(import.meta.env.VITE_CURRENT_ENVIRONMENT == "localenvironment");
 
     if (!baseUrl) return {
         success: false,

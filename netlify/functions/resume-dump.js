@@ -10,12 +10,12 @@ import { CORS } from "../../private/cors/cors.js";
  *                                        → { ready: true, data: {...} } (done)
  */
 export async function handler(event, context) {
-    const cors = CORS(event);
-    if (cors?.statusCode) {
-        console.log("Returning cors");
-        return cors;
-    }
-
+    //const cors = CORS(event);
+    //if (cors?.statusCode) {
+    //    console.log("Returning cors");
+    //    return cors;
+    //}
+    console.log(JSON.stringify(event.headers, null, 2));
     const method = event.httpMethod;
     const params = event.queryStringParameters;
 

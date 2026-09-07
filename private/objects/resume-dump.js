@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { SYSTEM_PROMPTS } from "../registry/prompts.js"
 import { insertResumeDump, insertResumeDumpDiff, getResumeDumpResult } from "../db/resume-dump.js";
 import { saveApiKey } from "../db/users.js";
+import { RESUME_DUMP_TOOL } from "../registry/schema.js";
 /**
  * 
  * @param {*} apiKey 
@@ -76,14 +77,14 @@ export const createResumeDump = async (apiKey, payload) => {
 
     try {
         const response = await anthropic.messages.create({
-            model: "claude-sonnet-5",
+            model: "claude-sonnet-4-6",
             max_tokens: 8192, // @todo verify token usage
             system,
             tools: [
                 {
                     name: "emit_resume_dump",
                     description: "Returns the resume_dump",
-                    input_schema: RESUME_DUMP_SCHEMA
+                    input_schema: RESUME_DUMP_TOOL.input_schema
                 }
             ],
             tool_choice: { type: "tool", name: "emit_resume_dump" },
@@ -107,17 +108,10 @@ export const createResumeDump = async (apiKey, payload) => {
             let data = toolUse.input;
 
             // database updates
-            const dump = await insertResumeDump(userId, data.resume_dump);
+            await saveApiKey(userId, apiKey);
+            await insertResumeDump(userId, data.resume_dump);
             await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
 
-            // The dump is already persisted at this point. Failing to encrypt/store
-            // the key (e.g. ENCRYPTION_KEY misconfigured) should not fail the job —
-            // the user will just have to re-enter the key next time.
-            try {
-                await saveApiKey(userId, apiKey);
-            } catch (keyErr) {
-                console.error("Resume dump saved, but the API key could not be stored:", keyErr.message);
-            }
 
             return {
                 ok: true,

@@ -17,12 +17,16 @@ import { CORS } from "../../private/cors/cors.js";
  */
 export async function handler(event, context) {
     const cors = CORS(event);
-    if (cors?.statusCode) return cors;
+    if (cors?.statusCode) {
+        console.error("Returning cors");
+        return cors;
+    }
 
     const method = event.httpMethod;
     const headers = event.headers;
 
     if (method !== "POST") {
+        console.error("Method not allowed")
         return { statusCode: 405, body: JSON.stringify({ message: "Method not allowed" }) };
     }
 
@@ -41,6 +45,7 @@ export async function handler(event, context) {
     );
 
     if (!event?.body) {
+        console.error("No body found in request");
         return { statusCode: 400, body: JSON.stringify({ message: "No body found in request" }) };
     }
 
