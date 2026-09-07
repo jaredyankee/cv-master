@@ -50,6 +50,14 @@ export async function handler(event, context) {
     }
 
     const body = JSON.parse(event.body);
+
+    // Env diagnostic — names and lengths only, never values. Tells you at a
+    // glance whether a variable reached the Functions runtime for this deploy.
+    const envReport = ["DATABASE_URL", "ENCRYPTION_KEY", "SEYONA_KEY", "ANTHROPIC_API_KEY"]
+        .map(k => `${k}=${process.env[k] === undefined ? "UNSET" : `set(len ${process.env[k].length})`}`)
+        .join(" ");
+    console.log(`env: ${envReport} | CONTEXT=${process.env.CONTEXT ?? "?"} DEPLOY_ID=${process.env.DEPLOY_ID ?? "?"}`);
+
     console.log("trying request");
     const fn = fnRegistry("registry-dump:POST");
 
