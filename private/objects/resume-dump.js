@@ -67,9 +67,9 @@ export const createResumeDump = async (apiKey, payload) => {
         };
     }
     
-    const anthropic = new Anthropic({
-        apiKey, apiKey
-    });
+    // The apiKey option is sent as the x-api-key header on every request and
+    // takes precedence over the ANTHROPIC_API_KEY env var.
+    const anthropic = new Anthropic({ apiKey });
     
     const system = SYSTEM_PROMPTS["CREATE_RESUME_DUMP"];
     const user = payload.resume_dump;
@@ -109,7 +109,15 @@ export const createResumeDump = async (apiKey, payload) => {
             // database updates
             const dump = await insertResumeDump(userId, data.resume_dump);
             await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
-            await saveApiKey(userId, apiKey);
+
+            // The dump is already persisted at this point. Failing to encrypt/store
+            // the key (e.g. ENCRYPTION_KEY misconfigured) should not fail the job —
+            // the user will just have to re-enter the key next time.
+            try {
+                await saveApiKey(userId, apiKey);
+            } catch (keyErr) {
+                console.error("Resume dump saved, but the API key could not be stored:", keyErr.message);
+            }
 
             return {
                 ok: true,
@@ -117,6 +125,11 @@ export const createResumeDump = async (apiKey, payload) => {
             }
         }
     } catch (err) {
+        // Anthropic SDK errors carry the HTTP status + the API's error body;
+        // surface both so a 401 (bad key) vs 404 (bad model) is obvious in the logs.
+        if (err?.status) {
+            console.error(`Anthropic API error ${err.status}:`, JSON.stringify(err.error ?? err.message));
+        }
         console.error("An error occured building the resume dump", err);
         return {
             ok: false,
