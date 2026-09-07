@@ -1,5 +1,5 @@
 import { appRequest } from "./api"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import DumpReview from "./components/Onboarding/DumpReview"
 import OnboardingForm from "./components/Onboarding/OnboardingForm"
 import Dashboard from "./components/Dashboard/Dashboard"
@@ -11,12 +11,43 @@ const makeId = () =>
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 function App () {
-    const [view, setView]                             = useState('onboarding')
+    const [view, setView]                             = useState('loading') // 'loading' | 'onboarding' | 'review' | 'dashboard'
     const [onboardingResponse, setOnboardingResponse] = useState(null)
     const [resumeDump, setResumeDump]                 = useState(null)  // finalized dump
     const [answeredQuestions, setAnsweredQuestions]   = useState([])
     const [applications, setApplications]             = useState([])    // newest first
     const [isLoading, setIsLoading]                   = useState(false)
+
+    // On first load: if this user already has a dump, skip onboarding.
+    useEffect(() => {
+        let cancelled = false
+        const userId = import.meta.env.VITE_TEST_USER_ID
+
+        async function loadExistingDump() {
+            if (!userId) { setView('onboarding'); return }
+            try {
+                const res = await appRequest(`/resume-dump?user_id=${encodeURIComponent(userId)}`, "GET")
+                const result = res.ok ? await res.json() : null
+                if (cancelled) return
+
+                if (result?.exists && result.data?.resume_dump) {
+                    const { resume_dump, revisions = [], questions = [] } = result.data
+                    setResumeDump(resume_dump)
+                    // keep the review payload so "Edit profile" can reopen it
+                    setOnboardingResponse({ resume_dump, revisions, questions })
+                    setView('dashboard')
+                } else {
+                    setView('onboarding')
+                }
+            } catch (err) {
+                console.error("Could not check for an existing resume dump", err)
+                if (!cancelled) setView('onboarding')
+            }
+        }
+
+        loadExistingDump()
+        return () => { cancelled = true }
+    }, [])
 
 
     async function handleDumpSubmit(dumpText, apiKey) {
@@ -76,6 +107,10 @@ function App () {
     }
 
     // views
+    if (view === 'loading') {
+        return <div className="placeholder">Loading your profile…</div>
+    }
+
     if (view === 'review' && onboardingResponse) {
         return (
             <DumpReview

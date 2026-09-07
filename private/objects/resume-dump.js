@@ -1,16 +1,35 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { SYSTEM_PROMPTS } from "../registry/prompts.js"
-import { insertResumeDump, insertResumeDumpDiff, getResumeDumpResult } from "../db/resume-dump.js";
+import {
+    insertResumeDump,
+    insertResumeDumpDiff,
+    getResumeDumpResult,
+    getResumeDumpByUser,
+} from "../db/resume-dump.js";
 import { ensureUser, saveApiKey } from "../db/users.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
-/**
- * 
- * @param {*} apiKey 
- * @param {*} payload {
- *      id: string
- *      resume_dump: string,
- * }
- */
+
+/** Maps a resume_dumps row (snake_case columns) to the ResumeDump shape the UI uses. */
+const shapeDump = (row) => ({
+    contact: {
+        name:     row.contact_name,
+        email:    row.contact_email,
+        phone:    row.contact_phone,
+        location: row.contact_location,
+        links:    row.contact_links    ?? [],
+    },
+    positioning:  row.positioning,
+    education:    row.education        ?? [],
+    experience:   row.experience       ?? [],
+    freelance:    row.freelance         ?? [],
+    projects:     row.projects         ?? [],
+    portfolio:    row.portfolio,
+    skills:       row.skills           ?? [],
+    gaps:         row.gaps             ?? [],
+    workingStyle: row.working_style,
+    lookingFor:   row.looking_for,
+})
+
 /**
  * Polling handler for the GET /resume-dump?ping endpoint.
  * Returns null if the background job hasn't written results yet,
@@ -24,27 +43,30 @@ export const getResumeDumpPoll = async (user_id) => {
     if (!row) return null
 
     return {
-        resume_dump: {
-            contact: {
-                name:     row.contact_name,
-                email:    row.contact_email,
-                phone:    row.contact_phone,
-                location: row.contact_location,
-                links:    row.contact_links    ?? [],
-            },
-            positioning:  row.positioning,
-            education:    row.education        ?? [],
-            experience:   row.experience       ?? [],
-            freelance:    row.freelance         ?? [],
-            projects:     row.projects         ?? [],
-            portfolio:    row.portfolio,
-            skills:       row.skills           ?? [],
-            gaps:         row.gaps             ?? [],
-            workingStyle: row.working_style,
-            lookingFor:   row.looking_for,
-        },
-        revisions: row.revisions ?? [],
-        questions: row.questions ?? [],
+        resume_dump: shapeDump(row),
+        revisions:   row.revisions ?? [],
+        questions:   row.questions ?? [],
+    }
+}
+
+/**
+ * Load handler for GET /resume-dump?user_id=... (no ping).
+ * Returns null if the user has never completed a dump, otherwise the dump
+ * plus the latest review diff so the UI can go straight to the dashboard
+ * (and still offer "Edit profile" → review).
+ *
+ * @param {string} user_id
+ * @returns {Promise<{ resume_dump: object, revisions: any[], questions: any[], finalized: boolean } | null>}
+ */
+export const getResumeDump = async (user_id) => {
+    const row = await getResumeDumpByUser(user_id)
+    if (!row) return null
+
+    return {
+        resume_dump: shapeDump(row),
+        revisions:   row.revisions ?? [],
+        questions:   row.questions ?? [],
+        finalized:   Boolean(row.onboarding_finalized || row.diff_finalized),
     }
 }
 

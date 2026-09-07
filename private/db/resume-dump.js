@@ -39,6 +39,52 @@ export const getResumeDumpResult = async (user_id) => {
 }
 
 /**
+ * Returns the user's resume dump (there is at most one per user) joined
+ * with their most recent diff, whether or not that diff is finalized.
+ * Used on app load to decide between onboarding and the dashboard.
+ * Returns null if the user has no dump yet.
+ *
+ * @param {string} user_id
+ */
+export const getResumeDumpByUser = async (user_id) => {
+    const [row] = await sql`
+        SELECT
+            d.id,
+            d.contact_name,
+            d.contact_email,
+            d.contact_phone,
+            d.contact_location,
+            d.contact_links,
+            d.positioning,
+            d.education,
+            d.experience,
+            d.freelance,
+            d.projects,
+            d.portfolio,
+            d.skills,
+            d.gaps,
+            d.working_style,
+            d.looking_for,
+            d.onboarding_finalized,
+            diff.id        AS diff_id,
+            diff.finalized AS diff_finalized,
+            diff.revisions,
+            diff.questions
+        FROM resume_dumps d
+        LEFT JOIN LATERAL (
+            SELECT id, finalized, revisions, questions
+            FROM resume_dump_diffs
+            WHERE resume_dump_id = d.id
+            ORDER BY created_at DESC
+            LIMIT 1
+        ) diff ON TRUE
+        WHERE d.user_id = ${user_id}
+        LIMIT 1
+    `
+    return row ?? null
+}
+
+/**
  * Inserts or updates a user's resume dump.
  * UPSERTS on user_id — one active dump per user.
  * Resets onboarding_finalized to FALSE on conflict (re-onboarding).
