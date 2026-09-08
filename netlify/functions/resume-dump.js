@@ -18,7 +18,6 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  */
 export async function handler(event) {
     const cors = CORS(event);
-    if (cors?.statusCode) return cors;
 
     const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
 
