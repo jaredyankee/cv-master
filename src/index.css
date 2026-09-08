@@ -11,6 +11,27 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
+  /* shape */
+  --radius:    8px;
+  --radius-sm: 4px;
+
+  /* semantic */
+  --muted:   #9ca3af;
+  --success: #16a34a;
+  --error:   #dc2626;
+
+  /* fit level */
+  --fit-mismatch:     #ef4444;
+  --fit-out-of-reach: #f97316;
+  --fit-reach:        #eab308;
+  --fit-target:       #22c55e;
+  --fit-strong-match: #10b981;
+
+  /* revision highlight (Word track-changes style) */
+  --revision-bg:         #fef9c3;
+  --revision-border:     #fbbf24;
+  --revision-note-color: #92400e;
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
@@ -43,6 +64,13 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+    --muted:   #6b7280;
+    --success: #22c55e;
+
+    --revision-bg:         #422006;
+    --revision-border:     #d97706;
+    --revision-note-color: #fde68a;
   }
 
   #social .button-icon {
@@ -58,7 +86,6 @@ body {
   width: 1126px;
   max-width: 100%;
   margin: 0 auto;
-  text-align: center;
   border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;

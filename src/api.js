@@ -1,0 +1,41 @@
+export const appRequest = async (endpoint, method, headers, payload) => {
+    if (!endpoint) {
+        return {
+            ok: false,
+            message: "endpoint is missing from request"
+        }
+    }
+    
+
+    let baseUrl;
+    if (import.meta.env.VITE_CURRENT_ENVIRONMENT == "localenvironment") {
+        baseUrl = "http://localhost:8888/.netlify/functions";
+    } else {
+        baseUrl = "https://cvmaster-jy.netlify.app/.netlify/functions";
+    }
+    console.log(import.meta.env.VITE_CURRENT_ENVIRONMENT);
+    console.log(import.meta.env.VITE_CURRENT_ENVIRONMENT == "localenvironment");
+
+    if (!baseUrl) return {
+        success: false,
+        error: "VITE_CURRENT_ENVIRONMENT not set"
+    }
+
+    let requestUrl = `${baseUrl}${endpoint}`;
+
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': "application/json",
+        ...headers,
+    }
+    const requestData = {
+        method,
+        headers,
+        body: JSON.stringify(payload)
+    }
+
+    const response = await fetch(requestUrl, requestData);
+
+    return response;
+    
+}
