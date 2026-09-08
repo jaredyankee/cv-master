@@ -1,53 +1,56 @@
+/**
+ * Browser origin gate for the Netlify functions.
+ *
+ * Returns the CORS response headers to attach on success, or a full
+ * { statusCode, headers, body } response the caller should return as-is
+ * (the OPTIONS preflight answer, or a 403 for a disallowed origin).
+ *
+ * Browsers send `Origin` on every cross-origin request and on all POST /
+ * PUT / DELETE requests. A same-origin GET (the deployed app calling its own
+ * functions) carries no `Origin` at all, only `Referer` and
+ * `sec-fetch-site: same-origin`. Requests with no `Origin` are therefore
+ * same-origin or non-browser clients; CORS cannot gate either of those, so
+ * they pass through here and are gated by authentication instead.
+ *
+ * @param {object} event   Netlify function event (headers are lowercased)
+ * @param {string|null} page  optional extra origin to allow
+ */
 export const CORS = (event, page = null) => {
-    //console.log('[CORS]');
-    // check key
-
-    // for internal use
     const allowed = [
         'http://localhost:5173',
         'http://localhost:5174',
         'https://cvmaster-jy.netlify.app',
-        'https://cvmaster-jy.netlify.app/'
     ];
-
-    console.log("Origin: ", event.headers.origin);
-
     if (page !== null) allowed.push(page);
-    // Set allowedOrigin to origin if in 'allowed'
-    const origin = event.headers.origin ?? event.headers.referer;
-    const allowOrigin = allowed.includes(origin) ? origin : null; 
 
-    // Allows requests from node
+    const headers = event.headers ?? {};
+    const origin  = headers.origin ?? null;
+    const allowOrigin = origin && allowed.includes(origin) ? origin : null;
+
     const cors = {
-        ...allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {},
+        ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
         'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
-        'Access-Control-Allow-Headers': event.headers['access-control-request-headers'] || 'Content-Type',
+        'Access-Control-Allow-Headers': headers['access-control-request-headers'] || 'Content-Type, Authorization, X-Api-Key',
         'Content-Type': 'application/json',
         'Vary': 'Origin',
     };
-    //console.log("COORS: ", cors);
 
-    //console.log('Cors check', authToken, process.env.SEYONA_KEY, '\nCheck result: ',  authToken !== process.env.SEYONA_KEY)
-
-    // Return right away for OPTIONS calls
+    // Preflight: answer for allowed origins, refuse the rest.
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers: cors,
-            body: '',
-        }
+        return { statusCode: allowOrigin ? 204 : 403, headers: cors, body: '' };
     }
-    // Return 403 for not allowed'
+
+    // No Origin header → same-origin or non-browser. Nothing for CORS to decide.
+    if (!origin) return cors;
+
     if (!allowOrigin) {
+        console.warn('CORS: origin not allowed:', origin);
         return {
             statusCode: 403,
             headers: cors,
-            body: JSON.stringify({
-                error: 'Origin not allowed:', origin
-            })
-        }
+            body: JSON.stringify({ error: 'Origin not allowed', origin }),
+        };
     }
 
-    // return the headers
     return cors;
 }
