@@ -1,5 +1,7 @@
 import { appRequest } from "./api"
+import { authClient, AUTH_CONFIGURED } from "./auth"
 import { useEffect, useState } from "react"
+import AuthForm from "./components/Auth/AuthForm"
 import DumpReview from "./components/Onboarding/DumpReview"
 import OnboardingForm from "./components/Onboarding/OnboardingForm"
 import Dashboard from "./components/Dashboard/Dashboard"
@@ -10,7 +12,11 @@ const makeId = () =>
         ? crypto.randomUUID()
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-function App () {
+/**
+ * Everything a signed-in user sees. Mounted with key={user.id}, so signing out
+ * or switching accounts unmounts it and all per-user state is dropped.
+ */
+function Workspace({ user, onSignOut }) {
     const [view, setView]                             = useState('loading') // 'loading' | 'onboarding' | 'review' | 'dashboard'
     const [onboardingResponse, setOnboardingResponse] = useState(null)
     const [resumeDump, setResumeDump]                 = useState(null)  // finalized dump
@@ -18,15 +24,14 @@ function App () {
     const [applications, setApplications]             = useState([])    // newest first
     const [isLoading, setIsLoading]                   = useState(false)
 
-    // On first load: if this user already has a dump, skip onboarding.
+    // On mount: if this user already has a dump, skip onboarding.
+    // The user is identified by the bearer token appRequest attaches.
     useEffect(() => {
         let cancelled = false
-        const userId = import.meta.env.VITE_TEST_USER_ID
 
         async function loadExistingDump() {
-            if (!userId) { setView('onboarding'); return }
             try {
-                const res = await appRequest(`/resume-dump?user_id=${encodeURIComponent(userId)}`, "GET")
+                const res = await appRequest("/resume-dump", "GET")
                 const result = res.ok ? await res.json() : null
                 if (cancelled) return
 
@@ -57,19 +62,14 @@ function App () {
             await appRequest("/resume-dump-background", "POST", {
                 'X-Api-Key': apiKey
             }, {
-                user_id: import.meta.env.VITE_TEST_USER_ID,
                 resume_dump: dumpText
             });
 
             // Poll until AI processing completes (3 s interval, 3 min max)
-            const userId = import.meta.env.VITE_TEST_USER_ID;
             const MAX_POLLS = 60;
             for (let i = 0; i < MAX_POLLS; i++) {
                 await new Promise(res => setTimeout(res, 3000));
-                const res = await appRequest(
-                    `/resume-dump?ping=true&user_id=${userId}`,
-                    "GET"
-                );
+                const res = await appRequest("/resume-dump?ping=true", "GET");
                 const result = await res.json();
                 if (result?.ready) {
                     setResumeDump(result.data?.resume_dump);
@@ -106,7 +106,6 @@ function App () {
         return application
     }
 
-    // views
     if (view === 'loading') {
         return <div className="placeholder">Loading your profile…</div>
     }
@@ -129,6 +128,8 @@ function App () {
                 applications={applications}
                 onCreateApplication={handleCreateApplication}
                 onEditProfile={() => setView(onboardingResponse ? 'review' : 'onboarding')}
+                user={user}
+                onSignOut={onSignOut}
             />
         )
     }
@@ -139,6 +140,34 @@ function App () {
             isLoading={isLoading}
         />
     )
+}
+
+function App () {
+    const session = authClient.useSession()          // { data, isPending, error }
+    const user    = session.data?.user ?? null
+
+    async function handleSignOut() {
+        try { await authClient.signOut() }
+        catch (err) { console.error("Sign out failed", err) }
+    }
+
+    if (!AUTH_CONFIGURED) {
+        return (
+            <div className="placeholder">
+                Sign-in isn't configured: set VITE_NEON_AUTH_URL to your Neon Auth base URL and rebuild.
+            </div>
+        )
+    }
+
+    if (session.isPending) {
+        return <div className="placeholder">Loading…</div>
+    }
+
+    if (!user) {
+        return <AuthForm />
+    }
+
+    return <Workspace key={user.id} user={user} onSignOut={handleSignOut} />
 }
 
 export default App;

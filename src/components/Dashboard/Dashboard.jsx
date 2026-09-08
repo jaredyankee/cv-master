@@ -16,6 +16,8 @@ import './Dashboard.css'
  *   applications:          Application[] — newest first
  *   onCreateApplication(input) → Application  — input: { jobDescription, notes, questions }
  *   onEditProfile()        — go back to the review step
+ *   user                   — { name, email } from the auth session (optional)
+ *   onSignOut()            — optional; renders a Sign out button when provided
  */
 export default function Dashboard({
     resumeDump,
@@ -23,6 +25,8 @@ export default function Dashboard({
     applications = [],
     onCreateApplication,
     onEditProfile,
+    user = null,
+    onSignOut,
 }) {
     // right-panel state: { mode: 'list' | 'new' | 'detail', id }
     const [panel, setPanel] = useState({ mode: 'list', id: null })
@@ -60,10 +64,15 @@ export default function Dashboard({
         <div className="dashboard">
             <header className="dashboard-topbar">
                 <span className="dashboard-brand">CV Master</span>
-                <span className="dashboard-user">{resumeDump?.contact?.name}</span>
+                <span className="dashboard-user">{user?.email ?? resumeDump?.contact?.name}</span>
                 <button type="button" className="link-btn" onClick={onEditProfile}>
                     Edit profile
                 </button>
+                {onSignOut && (
+                    <button type="button" className="link-btn" onClick={onSignOut}>
+                        Sign out
+                    </button>
+                )}
             </header>
 
             <div className="dashboard-body">

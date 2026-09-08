@@ -21,10 +21,13 @@ There is no shared API key. You enter your own on the first screen. It is sent t
 - **Front end:** React 19 + Vite. No UI framework; plain CSS with light/dark theming.
 - **Functions:** Netlify Functions. The ingestion step is a background function so it isn't bound by the 10-second synchronous limit; the UI polls a small GET function until the result is stored.
 - **Database:** Neon (Postgres) via `@neondatabase/serverless`.
+- **Auth:** Neon Auth (managed Better Auth). The browser signs in against Neon directly; functions verify the resulting JWT against the project's JWKS and take the user id from it.
 - **AI:** Anthropic SDK with tool-forced structured output.
 
 ```
 src/                      React app
+  auth.js                 Neon Auth client + token helper
+  components/Auth/        sign in / sign up
   components/Onboarding/  dump form + review step
   components/Dashboard/   profile panel, applications, new-application form
   schemas/                JSDoc types and mock data for the two AI payloads
@@ -32,6 +35,7 @@ netlify/functions/        HTTP entry points (thin; delegate to private/)
 private/
   objects/                business logic (createResumeDump, load, poll)
   db/                     SQL for users, dumps, review diffs
+  lib/auth.js             bearer JWT verification (jose + Neon JWKS)
   lib/crypto.js           encrypt / decrypt for stored API keys
   registry/               system prompt, tool schema, function registry
   cors/                   origin allow-list
@@ -55,10 +59,16 @@ npx netlify dev           # serves the Vite app and the functions together
 | `ENCRYPTION_KEY` | functions | 64-char hex key for encrypting stored API keys. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `SEYONA_KEY` | functions | Shared secret used by the CORS layer |
 | `ANTHROPIC_API_KEY` | functions, optional | Fallback when no key is sent from the form. Useful for a single-user deployment |
-| `VITE_TEST_USER_ID` | front end | Stand-in user id until auth lands |
+| `NEON_AUTH_BASE_URL` | functions | Neon Auth base URL, from Neon console → Auth → Configuration. Used as the JWT issuer |
+| `NEON_AUTH_JWKS_URL` | functions, optional | Defaults to `<NEON_AUTH_BASE_URL>/.well-known/jwks.json` |
+| `VITE_NEON_AUTH_URL` | front end | Same value as `NEON_AUTH_BASE_URL`, baked into the browser build |
 | `VITE_CURRENT_ENVIRONMENT` | front end | Set to `localenvironment` to point the app at `netlify dev` |
 
 `.env` is only read locally. For a deployed site, add the same variables under **Site configuration → Environment variables** in Netlify (Functions scope, all deploy contexts) and redeploy.
+
+### Auth
+
+Enable Auth on the Neon project (console → Auth). Copy the Base URL into both `NEON_AUTH_BASE_URL` and `VITE_NEON_AUTH_URL`, and add the app's origins (your `localhost` dev port and the deployed site) to Neon Auth's trusted origins. Users are stored by Neon in the `neon_auth` schema of the same database; this app's own `users` table is keyed by the same id, which is the `sub` claim of the JWT.
 
 ### Database
 
@@ -66,9 +76,9 @@ Three tables are expected: `users`, `resume_dumps` (one per user), and `resume_d
 
 ## Status
 
-Working today: onboarding, AI ingestion, review, dashboard, and returning-user detection.
+Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, and returning-user detection.
 
-Not yet: an endpoint for job applications (they are held in memory for now), persisting the finalized review, and real authentication. Until auth exists, treat this as a single-user tool.
+Not yet: an endpoint for job applications (they are held in memory for now) and persisting the finalized review.
 
 ## License
 
