@@ -117,7 +117,8 @@ export const createResumeDump = async (apiKey, payload) => {
                 }
             ]
         });
-        console.log(JSON.stringify(response, null, 2));
+        // Log shape/usage only — the content block holds the user's full profile.
+        console.log(`resume-dump response: stop_reason=${response.stop_reason} blocks=${response.content?.length ?? 0} usage=${JSON.stringify(response.usage ?? {})}`);
 
         const toolUse = response.content?.find(block => block.type === "tool_use");
         if (!toolUse?.input) {
