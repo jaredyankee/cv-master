@@ -30,6 +30,11 @@ into a structured profile, then builds per-job resumes from pieces of that profi
 
 - `netlify/functions/*` are thin HTTP handlers. Logic lives in `private/objects/`,
   SQL in `private/db/`, prompts and tool schemas in `private/registry/`.
+- **Identity comes only from the bearer token.** Every function calls
+  `requireUser(event)` from `private/lib/auth.js`, which verifies the Neon Auth JWT
+  against the project JWKS and returns `{ userId }` (the `sub` claim). Never read a
+  user id from the body or query string. The browser gets the token from
+  `getAuthToken()` in `src/auth.js`; `appRequest` in `src/api.js` attaches it.
 - Long AI calls run in a Netlify **background** function; the UI polls a GET
   function until the result is in the database. Don't put AI calls in synchronous
   functions (10 s limit).
@@ -117,12 +122,12 @@ remote). The fit input is the resume dump, the JD, the notes, and the questions.
 
 ## Database
 
-Postgres on Neon. Tables: `users` (id, `api_key_encrypted`), `resume_dumps`
-(one per user, `onboarding_finalized`), `resume_dump_diffs` (one per review pass,
-`finalized`). Column names are visible in `private/db/`.
+Postgres on Neon. Tables: `users` (id = Neon Auth user id, `api_key_encrypted`),
+`resume_dumps` (one per user, `onboarding_finalized`), `resume_dump_diffs` (one per
+review pass, `finalized`). Column names are visible in `private/db/`. Neon Auth keeps
+its own users in the `neon_auth` schema; `users.id` matches `neon_auth.user.id`.
 
 ## Not built yet
 
 - Job-application endpoint (applications are in React state for now)
 - Persisting the finalized review and question answers
-- Authentication (`VITE_TEST_USER_ID` stands in for a real user)

@@ -1,5 +1,6 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
+import { requireUser } from "../../private/lib/auth.js";
 
 /**
  * @fn resume-dump-background
@@ -9,13 +10,18 @@ import { CORS } from "../../private/cors/cors.js";
  * Runs the AI ingestion of the resume dump and writes the structured
  * result + diff to the DB. The UI polls /resume-dump?ping=true for completion.
  *
+ * Because the 202 is sent before this code runs, any status returned here is
+ * invisible to the client. Auth failures are logged and the job is skipped;
+ * the client already checks for a session before calling.
+ *
  * POST only.
  * Headers:
- *   x-api-key  — Anthropic API key (self-serve)
+ *   Authorization — Bearer <Neon Auth JWT>  (identifies the user)
+ *   x-api-key     — Anthropic API key (BYOK)
  * Body:
- *   { user_id, resume_dump }
+ *   { resume_dump }
  */
-export async function handler(event, context) {
+export async function handler(event) {
     const cors = CORS(event);
     if (cors?.statusCode) {
         console.error("Returning cors");
@@ -28,6 +34,20 @@ export async function handler(event, context) {
     if (method !== "POST") {
         console.error("Method not allowed")
         return { statusCode: 405, body: JSON.stringify({ message: "Method not allowed" }) };
+    }
+
+    // Env diagnostic — names and lengths only, never values.
+    const envReport = ["DATABASE_URL", "ENCRYPTION_KEY", "SEYONA_KEY", "ANTHROPIC_API_KEY", "NEON_AUTH_BASE_URL", "NEON_AUTH_JWKS_URL"]
+        .map(k => `${k}=${process.env[k] === undefined ? "UNSET" : `set(len ${process.env[k].length})`}`)
+        .join(" ");
+    console.log(`env: ${envReport} | CONTEXT=${process.env.CONTEXT ?? "?"} DEPLOY_ID=${process.env.DEPLOY_ID ?? "?"}`);
+
+    let user;
+    try {
+        user = await requireUser(event);
+    } catch (err) {
+        console.error("resume-dump-background auth:", err.message);
+        return { statusCode: err.status ?? 401, body: JSON.stringify({ message: "Unauthorized" }) };
     }
 
     // BYOK: the Anthropic key comes from the form via the X-Api-Key header.
@@ -50,20 +70,10 @@ export async function handler(event, context) {
     }
 
     const body = JSON.parse(event.body);
-
-    // Env diagnostic — names and lengths only, never values. Tells you at a
-    // glance whether a variable reached the Functions runtime for this deploy.
-    const envReport = ["DATABASE_URL", "ENCRYPTION_KEY", "SEYONA_KEY", "ANTHROPIC_API_KEY"]
-        .map(k => `${k}=${process.env[k] === undefined ? "UNSET" : `set(len ${process.env[k].length})`}`)
-        .join(" ");
-    console.log(`env: ${envReport} | CONTEXT=${process.env.CONTEXT ?? "?"} DEPLOY_ID=${process.env.DEPLOY_ID ?? "?"}`);
-
-    console.log("trying request");
     const fn = fnRegistry("registry-dump:POST");
 
     try {
-        console.log("trying fn");
-        await fn(apiKey, body);
+        await fn(apiKey, { user_id: user.userId, resume_dump: body.resume_dump });
     } catch (err) {
         console.error("Background resume-dump error:", err);
     }

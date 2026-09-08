@@ -1,48 +1,51 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
+import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
 
 /**
  * @fn resume-dump
- * GET endpoint with two modes, both keyed by user_id.
+ * GET, authenticated. The user comes from the bearer token, never from the query.
  *
  * Load (app start — does this user already have a dump?):
- *   GET /resume-dump?user_id=...            → { exists: false }
- *                                           → { exists: true, data: { resume_dump, revisions, questions, finalized } }
+ *   GET /resume-dump             → { exists: false }
+ *                                → { exists: true, data: { resume_dump, revisions, questions, finalized } }
  *
  * Poll (while resume-dump-background processes the AI call):
- *   GET /resume-dump?ping=true&user_id=...  → { ready: false }   (still processing)
- *                                           → { ready: true, data: { resume_dump, revisions, questions } }
+ *   GET /resume-dump?ping=true   → { ready: false }   (still processing)
+ *                                → { ready: true, data: { resume_dump, revisions, questions } }
+ *
+ * 401 without a valid Neon Auth token; 500 if the function has no NEON_AUTH_BASE_URL.
  */
-export async function handler(event, context) {
-    //const cors = CORS(event);
-    //if (cors?.statusCode) {
-    //    console.log("Returning cors");
-    //    return cors;
-    //}
-    console.log(JSON.stringify(event.headers, null, 2));
-    const method = event.httpMethod;
+export async function handler(event) {
+    const cors = CORS(event);
+    if (cors?.statusCode) return cors;
+
+    const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
+
+    if (event.httpMethod !== "GET") {
+        return json(405, { message: "Method not allowed" });
+    }
+
+    let user;
+    try {
+        user = await requireUser(event);
+    } catch (err) {
+        console.error("resume-dump auth:", err.message);
+        return authErrorResponse(err, cors);
+    }
+
     const params = event.queryStringParameters ?? {};
-
-    if (method !== "GET") {
-        return { statusCode: 405, body: JSON.stringify({ message: "Method not allowed" }) };
-    }
-
-    if (!params.user_id) {
-        return { statusCode: 400, body: JSON.stringify({ message: "user_id is required" }) };
-    }
-
     const isPing = Boolean(params.ping);
     const fn = fnRegistry(isPing ? "registry-dump:GET" : "registry-dump:LOAD");
 
     try {
-        const result = await fn(params.user_id);
+        const result = await fn(user.userId);
         const body = isPing
             ? (result ? { ready: true, data: result }  : { ready: false })
             : (result ? { exists: true, data: result } : { exists: false });
-
-        return { statusCode: 200, body: JSON.stringify(body) };
+        return json(200, body);
     } catch (err) {
         console.error(`Error ${isPing ? "polling" : "loading"} resume-dump:`, err);
-        return { statusCode: 500, body: JSON.stringify({ message: "Internal server error" }) };
+        return json(500, { message: "Internal server error" });
     }
 }
