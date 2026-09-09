@@ -1,5 +1,13 @@
-/** First non-empty line of the JD, trimmed, as the application's display title. */
+/**
+ * Display title for an application: "Job title at Company" when the model
+ * extracted them, otherwise the first non-empty line of the posting.
+ */
 export function applicationLabel(app) {
+    const title   = app.jobTitle?.trim()
+    const company = app.companyName?.trim()
+    if (title && company) return `${title} at ${company}`
+    if (title || company) return title || company
+
     const line = (app.jobDescription ?? '')
         .split('\n')
         .map(l => l.trim())
@@ -15,4 +23,11 @@ export function formatDate(iso) {
     } catch {
         return ''
     }
+}
+
+/** Client-side processing state for an application that has no analysis yet. */
+export function analysisState(app) {
+    if (app.response) return 'ready'
+    if (app.error)    return 'failed'
+    return 'pending'
 }

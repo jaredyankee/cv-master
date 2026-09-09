@@ -1,5 +1,7 @@
 import FitBadge from './FitBadge'
-import { applicationLabel, formatDate } from './applicationUtils'
+import { applicationLabel, formatDate, analysisState } from './applicationUtils'
+
+const STATE_LABEL = { pending: 'Analyzing…', failed: 'Failed' }
 
 /**
  * Right-panel list of applications with the "+" entry point.
@@ -41,7 +43,7 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect }
                                     <span className="app-card-title">{applicationLabel(app)}</span>
                                     {app.response?.fit_criteria?.level
                                         ? <FitBadge level={app.response.fit_criteria.level} />
-                                        : <span className="status-pill">Not analyzed</span>}
+                                        : <span className={`status-pill is-${analysisState(app)}`}>{STATE_LABEL[analysisState(app)]}</span>}
                                 </div>
                                 <div className="app-card-meta">
                                     <span>{formatDate(app.createdAt)}</span>

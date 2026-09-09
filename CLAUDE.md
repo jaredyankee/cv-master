@@ -127,7 +127,19 @@ Postgres on Neon. Tables: `users` (id = Neon Auth user id, `api_key_encrypted`),
 review pass, `finalized`). Column names are visible in `private/db/`. Neon Auth keeps
 its own users in the `neon_auth` schema; `users.id` matches `neon_auth.user.id`.
 
+## Job applications
+
+`POST /job-application-background` (client supplies the row `id` as a UUID) →
+`private/objects/job-application.js` loads the dump, calls the model with
+`JOB_APPLICATION_TOOL`, and inserts the finished row. The UI polls
+`GET /job-application?id=…` until `{ ready: true }`; `GET /job-application` lists.
+The row is written only once the analysis exists, so `fit_level IS NULL` never
+appears. `job_application_status` is the user's lifecycle (draft → applied → …),
+not a processing state.
+
 ## Not built yet
 
-- Job-application endpoint (applications are in React state for now)
 - Persisting the finalized review and question answers
+- The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
+  come back in one call; the guard needs a fit-only first pass)
+- Updating a stored API key after onboarding
