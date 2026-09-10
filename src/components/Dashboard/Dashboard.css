@@ -189,6 +189,17 @@
 .block { margin-bottom: 34px; }
 .block:last-child { margin-bottom: 0; }
 
+/* Section label with an optional action (e.g. Copy as YAML) on the right. */
+.block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 13px;
+}
+
+.block-head .section-label { margin-bottom: 0; }
+
 .block-framed > .resume {
   border: 1px solid var(--border);
   border-radius: var(--radius);

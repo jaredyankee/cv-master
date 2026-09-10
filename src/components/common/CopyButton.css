@@ -1,0 +1,32 @@
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.copy-btn:hover {
+  color: var(--text-h);
+  border-color: var(--border-strong);
+}
+
+.copy-btn.is-copied {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.copy-btn.is-error {
+  color: var(--error);
+  border-color: var(--error);
+}
