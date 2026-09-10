@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import FitBadge from './FitBadge'
 import Progress from '../common/Progress'
+import CopyButton from '../common/CopyButton'
 import { BUILD_PHRASES } from '../common/phrases'
+import { toRenderCvYaml } from '../../lib/resumeYaml'
 import { applicationLabel, formatDate, analysisState } from './applicationUtils'
 import { WARN_ON_FIT } from '../../schemas/jobApplication'
 
@@ -15,10 +17,13 @@ const INTENT_LABEL = {
     warning:       'Warning',
 }
 
-function Section({ label, children, className = '' }) {
+function Section({ label, action = null, children, className = '' }) {
     return (
         <section className={`block ${className}`.trim()}>
-            <p className="section-label">{label}</p>
+            <div className="block-head">
+                <p className="section-label">{label}</p>
+                {action}
+            </div>
             {children}
         </section>
     )
@@ -201,7 +206,17 @@ export default function ApplicationDetail({ application, onBack }) {
                 {/* Main panel: the deliverable. */}
                 <div className="detail-col detail-col-main">
                     {ja && (
-                        <Section label="Built resume" className="block-framed">
+                        <Section
+                            label="Built resume"
+                            className="block-framed"
+                            action={
+                                <CopyButton
+                                    text={() => toRenderCvYaml(ja)}
+                                    label="Copy as YAML"
+                                    copiedLabel="Copied"
+                                />
+                            }
+                        >
                             <BuiltResume ja={ja} />
                         </Section>
                     )}
