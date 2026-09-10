@@ -250,6 +250,28 @@
   color: var(--text);
 }
 
+/* Entries held back from built resumes: dimmed, but still readable — they
+   still do work for the fit analysis. */
+.entry.is-context-only .entry-title,
+.entry.is-context-only .entry-sub,
+.entry.is-context-only .entry-body { opacity: 0.62; }
+
+.context-tag {
+  display: inline-block;
+  margin-left: 9px;
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  vertical-align: middle;
+  opacity: 1;
+}
+
 .entry-dates {
   font-family: var(--mono);
   font-size: 11.5px;

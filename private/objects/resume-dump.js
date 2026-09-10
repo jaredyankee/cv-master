@@ -90,6 +90,9 @@ export const normalizeDump = (dump) => {
         startDate:   str(e.startDate),
         endDate:     str(e.endDate),
         description: text(e.description),
+        // Context-only: the model may use it to judge fit, but must not put
+        // it on a built resume. Set by the user, never inferred.
+        excludeFromResume: Boolean(e.excludeFromResume),
     })
 
     return {
@@ -112,9 +115,10 @@ export const normalizeDump = (dump) => {
         experience: objList(d.experience, role, e => e.company || e.title),
         freelance:  objList(d.freelance,  role, e => e.company || e.title),
         projects: objList(d.projects, p => ({
-            name:        str(p.name),
-            description: text(p.description),
-            links:       strList(p.links),
+            name:              str(p.name),
+            description:       text(p.description),
+            links:             strList(p.links),
+            excludeFromResume: Boolean(p.excludeFromResume),
         }), p => p.name || p.description),
         portfolio: text(d.portfolio),
         skills: objList(d.skills, s => ({

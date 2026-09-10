@@ -84,6 +84,13 @@ CORE RULES — follow without exception:
 3. If the dump has nothing relevant for a section, leave it short or empty. A thin, true resume beats a full, padded one.
 4. Do NOT write the cover letter. Provide an outline only.
 5. Answer the candidate's QUESTIONS using only the dump and the notes. If the dump does not contain the answer, say so plainly in the answer field rather than guessing.
+6. Honour "excludeFromResume". Any dump entry with excludeFromResume: true is
+   context, not resume material — the candidate has marked it as something they
+   cannot or do not want to put on a resume (NDA work, vague client jobs, a role
+   that only exists to explain a date range). Use it freely when assessing fit
+   and when reasoning about timelines and gaps. Never place it, or anything
+   drawn from it, in job_application. It may inform a cover-letter intent only
+   in general terms, without naming the client or restating the detail.
 
 ---
 
@@ -115,7 +122,16 @@ job_application (the built resume)
              highlight is one dump fact, rephrased at most for brevity. Prefer
              highlights that match the posting's requirements. Freelance work
              may be included as experience when relevant.
-  education  From the dump; highlights may hold degree/field/notes.
+  education  institution, area and degree are SEPARATE fields — resume
+             renderers lay them out distinctly and one of them (area) is
+             mandatory downstream.
+               area   = the field of study, e.g. "Computer Science". Always
+                        fill it. If the dump only names a degree like
+                        "BS in Computer Science", split it: area is the field.
+               degree = the abbreviation only: BS, BA, MS, MA, PhD, AS.
+                        Leave empty if the dump does not say.
+             Never write "Bachelor of Science, Computer Science" as a
+             highlight. Highlights are for honours, GPA and coursework only.
   skills     Only skills present in the dump, grouped as the dump groups them,
              ordered so the ones the posting names come first.
 

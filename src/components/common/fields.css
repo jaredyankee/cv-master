@@ -21,6 +21,36 @@
   font-size: 13.5px;
 }
 
+/* ── checkbox ────────────────────────────────────────────────── */
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.check-box {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check-label {
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.check-hint {
+  margin: 5px 0 0 24px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 textarea.input { resize: vertical; }
 
 /* ── list of strings ─────────────────────────────────────────── */

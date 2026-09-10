@@ -55,9 +55,9 @@ resume_dump: {
   contact:      { name, email, phone, location, links[] }
   positioning:  string          // preferred identity / how they pitch themselves
   education:    [{ school, degree, field, startDate, endDate, notes }]
-  experience:   [{ company, title, startDate, endDate, description }]
-  freelance:    [{ company, title, startDate, endDate, description }]
-  projects:     [{ name, description, links[] }]
+  experience:   [{ company, title, startDate, endDate, description, excludeFromResume }]
+  freelance:    [{ company, title, startDate, endDate, description, excludeFromResume }]
+  projects:     [{ name, description, links[], excludeFromResume }]
   portfolio:    string
   skills:       [{ category, items[] }]
   gaps:         string[]        // self-reported missing quals or skills
@@ -98,7 +98,7 @@ suggestion with an Accept button. Questions render with a free-text answer box.
     contact:    { name, title, location, email, phone, links[] }
     summary:    string
     experience: [{ company, title, startDate, endDate, highlights[] }]
-    education:  [{ school, startDate, endDate, highlights[] }]
+    education:  [{ school, area, degree, startDate, endDate, highlights[] }]
     skills:     [{ category, items[] }]
   },
   cover_letter: {
@@ -120,6 +120,12 @@ suggestion with an Accept button. Questions render with a free-text answer box.
 `Mismatch` means something disqualifying for the user (e.g. on-site when they want
 remote). The fit input is the resume dump, the JD, the notes, and the questions.
 
+`education` entries carry `area` and `degree` as their own fields — never folded
+into `highlights`. Resume renderers lay them out distinctly, and RenderCV
+*requires* an area on every education entry, so a dump that hides
+"Bachelor of Science, Computer Science" in a highlight produces YAML it rejects.
+Highlights are for honours, GPA and coursework only.
+
 ## Database
 
 Postgres on Neon. Tables: `users` (id = Neon Auth user id, `api_key_encrypted`),
@@ -136,6 +142,16 @@ its own users in the `neon_auth` schema; `users.id` matches `neon_auth.user.id`.
 The row is written only once the analysis exists, so `fit_level IS NULL` never
 appears. `job_application_status` is the user's lifecycle (draft → applied → …),
 not a processing state.
+
+## Context-only entries
+
+Any entry in `experience`, `freelance` or `projects` can carry
+`excludeFromResume: true`. The build prompt still reads it when assessing fit
+and reasoning about timelines, but must never place it — or anything drawn from
+it — in `job_application`. It is set by the user, never inferred during
+ingestion: deciding what is unshareable is not the model's call.
+
+The dump columns are already `jsonb`, so this needed no migration.
 
 ## Editing
 

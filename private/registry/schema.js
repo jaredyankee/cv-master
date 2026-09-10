@@ -82,11 +82,16 @@ export const JOB_APPLICATION_TOOL = {
                             type: 'object',
                             properties: {
                                 school:     { type: 'string' },
+                                // area and degree are separate fields, not highlights:
+                                // resume renderers lay them out distinctly, and RenderCV
+                                // requires an area on every education entry.
+                                area:       { type: 'string', description: 'Field of study, e.g. "Computer Science". Required — never fold this into highlights.' },
+                                degree:     { type: 'string', description: 'Abbreviated: BS, BA, MS, MA, PhD, AS. Empty if the dump does not say.' },
                                 startDate:  { type: 'string' },
                                 endDate:    { type: 'string' },
-                                highlights: { type: 'array', items: { type: 'string' } },
+                                highlights: { type: 'array', items: { type: 'string' }, description: 'Honours, GPA, coursework. Never the degree or field of study.' },
                             },
-                            required: ['school'],
+                            required: ['school', 'area'],
                         },
                     },
                     skills: { type: 'array', items: skillItem },

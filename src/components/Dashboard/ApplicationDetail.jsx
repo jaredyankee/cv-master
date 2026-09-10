@@ -91,10 +91,15 @@ function BuiltResume({ ja }) {
             {has(ja.education) && (
                 <div className="resume-section">
                     <p className="section-label">Education</p>
-                    {ja.education.map((e, i) => (
+                    {ja.education.map((e, i) => {
+                        const qualification = [e.degree, e.area].filter(has).join(', ')
+                        return (
                         <article key={i} className="entry">
                             <div className="entry-head">
-                                <div className="entry-title">{e.school}</div>
+                                <div>
+                                    <div className="entry-title">{e.school}</div>
+                                    {has(qualification) && <div className="entry-sub">{qualification}</div>}
+                                </div>
                                 <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
                             </div>
                             {has(e.highlights) && (
@@ -103,7 +108,8 @@ function BuiltResume({ ja }) {
                                 </ul>
                             )}
                         </article>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
 
@@ -131,6 +137,10 @@ const BUILT_ROLE_FIELDS = [
 
 const BUILT_SCHOOL_FIELDS = [
     { key: 'school',    label: 'School' },
+    // area and degree are their own fields: resume renderers lay them out
+    // distinctly, and RenderCV rejects an entry with no area.
+    { key: 'area',      label: 'Field of study', placeholder: 'Computer Science' },
+    { key: 'degree',    label: 'Degree', placeholder: 'BS' },
     { key: 'startDate', label: 'Start', mono: true },
     { key: 'endDate',   label: 'End',   mono: true },
 ]
@@ -177,7 +187,7 @@ function BuiltResumeEditor({ draft, setDraft }) {
                     value={draft.education} onChange={v => set({ education: v })}
                     fields={BUILT_SCHOOL_FIELDS}
                     list={{ key: 'highlights', label: 'Highlights', itemLabel: 'highlight', addLabel: 'Add highlight' }}
-                    blank={() => ({ school: '', startDate: '', endDate: '', highlights: [] })}
+                    blank={() => ({ school: '', area: '', degree: '', startDate: '', endDate: '', highlights: [] })}
                     entryLabel="School" addLabel="Add school"
                 />
             </div>
