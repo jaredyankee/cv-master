@@ -76,9 +76,9 @@ Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_d
 
 ## Status
 
-Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, returning-user detection, and job applications (fit, built resume, cover-letter outline).
+Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, returning-user detection, job applications (fit, built resume, cover-letter outline), and editing — every section of your profile and of each built resume can be corrected, reordered, or extended by hand.
 
-Not yet: persisting the finalized review, and a confirmation step before spending tokens on a Mismatch or Out of Reach role.
+Not yet: a confirmation step before spending tokens on a Mismatch or Out of Reach role.
 
 ## License
 

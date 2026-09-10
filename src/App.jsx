@@ -98,10 +98,53 @@ function Workspace({ user, onSignOut }) {
         }
     }
 
+    /**
+     * PUTs the whole dump (the server takes the complete object) built from
+     * the current state plus a partial patch from one section editor.
+     * Throws on failure so EditableSection can keep the draft on screen.
+     */
+    async function handleSaveDump(patch, { finalized } = {}) {
+        const next = { ...resumeDump, ...patch }
+        const res = await appRequest("/resume-dump", "PUT", null, {
+            resume_dump: next,
+            ...(finalized ? { finalized: true } : {}),
+        })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        // Trust the server's copy: it normalized and trimmed what we sent.
+        setResumeDump(body?.data?.resume_dump ?? next)
+    }
+
+    /** Persists an edited built resume for one application. */
+    async function handleSaveResume(id, jobApplication) {
+        const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "PUT", null, {
+            job_application: jobApplication,
+        })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        if (body?.data) patchApplication(id, body.data)
+    }
+
     // handle reviewed dump
-    function handleReviewComplete(finalDump, answered = []) {
-        setResumeDump(finalDump)
-        setAnsweredQuestions(answered.filter(q => q.answer?.trim()))
+    async function handleReviewComplete(finalDump, answered = []) {
+        const answers = answered.filter(q => q.answer?.trim())
+        setAnsweredQuestions(answers)
+        try {
+            await handleSaveDump(finalDump, { finalized: true })
+        } catch (err) {
+            // The dashboard is still usable with what's in memory; the dump
+            // just isn't persisted yet and the review will reappear on reload.
+            console.error("Could not persist the finalized dump", err)
+            setResumeDump(finalDump)
+        }
         setView('dashboard')
     }
 
@@ -182,6 +225,8 @@ function Workspace({ user, onSignOut }) {
                 applications={applications}
                 onCreateApplication={handleCreateApplication}
                 onEditProfile={() => setView(onboardingResponse ? 'review' : 'onboarding')}
+                onSaveDump={handleSaveDump}
+                onSaveResume={handleSaveResume}
                 user={user}
                 onSignOut={onSignOut}
             />

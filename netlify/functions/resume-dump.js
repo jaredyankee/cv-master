@@ -14,6 +14,10 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   GET /resume-dump?ping=true   → { ready: false }   (still processing)
  *                                → { ready: true, data: { resume_dump, revisions, questions } }
  *
+ * Save (user edits, and the review's "Finalize profile"):
+ *   PUT /resume-dump             → { ok: true, data: { resume_dump } }
+ *   body: { resume_dump, finalized? }
+ *
  * 401 without a valid Neon Auth token; 500 if the function has no NEON_AUTH_BASE_URL.
  */
 export async function handler(event) {
@@ -22,7 +26,8 @@ export async function handler(event) {
 
     const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
 
-    if (event.httpMethod !== "GET") {
+    const method = event.httpMethod;
+    if (method !== "GET" && method !== "PUT") {
         return json(405, { message: "Method not allowed" });
     }
 
@@ -32,6 +37,25 @@ export async function handler(event) {
     } catch (err) {
         console.error("resume-dump auth:", err.message);
         return authErrorResponse(err, cors);
+    }
+
+    if (method === "PUT") {
+        let body;
+        try {
+            body = JSON.parse(event.body ?? "");
+        } catch {
+            return json(400, { message: "Body is not valid JSON" });
+        }
+
+        try {
+            const save = fnRegistry("registry-dump:PUT");
+            const result = await save(user.userId, body.resume_dump, { finalized: body.finalized });
+            if (!result.ok) return json(400, { message: result.error });
+            return json(200, { ok: true, data: { resume_dump: result.resume_dump } });
+        } catch (err) {
+            console.error("Error saving resume-dump:", err);
+            return json(500, { message: "Internal server error" });
+        }
     }
 
     const params = event.queryStringParameters ?? {};

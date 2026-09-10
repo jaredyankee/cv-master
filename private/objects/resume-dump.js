@@ -5,9 +5,12 @@ import {
     insertResumeDumpDiff,
     getResumeDumpResult,
     getResumeDumpByUser,
+    updateResumeDump,
+    finalizeResumeDumpDiff,
 } from "../db/resume-dump.js";
 import { ensureUser, saveApiKey } from "../db/users.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
+import { str, text, strList, objList } from "../lib/normalize.js";
 
 /** Maps a resume_dumps row (snake_case columns) to the ResumeDump shape the UI uses. */
 export const shapeDump = (row) => ({
@@ -68,6 +71,82 @@ export const getResumeDump = async (user_id) => {
         questions:   row.questions ?? [],
         finalized:   Boolean(row.onboarding_finalized || row.diff_finalized),
     }
+}
+
+/**
+ * Coerces a client-submitted dump into the exact shape the columns expect.
+ * Unknown keys are dropped; nothing is invented.
+ *
+ * @param {object} dump
+ * @returns {object} a ResumeDump safe to persist
+ */
+export const normalizeDump = (dump) => {
+    const d = dump ?? {}
+    const c = d.contact ?? {}
+
+    const role = e => ({
+        company:     str(e.company),
+        title:       str(e.title),
+        startDate:   str(e.startDate),
+        endDate:     str(e.endDate),
+        description: text(e.description),
+    })
+
+    return {
+        contact: {
+            name:     str(c.name),
+            email:    str(c.email),
+            phone:    str(c.phone),
+            location: str(c.location),
+            links:    strList(c.links),
+        },
+        positioning: text(d.positioning),
+        education: objList(d.education, e => ({
+            school:    str(e.school),
+            degree:    str(e.degree),
+            field:     str(e.field),
+            startDate: str(e.startDate),
+            endDate:   str(e.endDate),
+            notes:     text(e.notes),
+        }), e => e.school || e.degree || e.field),
+        experience: objList(d.experience, role, e => e.company || e.title),
+        freelance:  objList(d.freelance,  role, e => e.company || e.title),
+        projects: objList(d.projects, p => ({
+            name:        str(p.name),
+            description: text(p.description),
+            links:       strList(p.links),
+        }), p => p.name || p.description),
+        portfolio: text(d.portfolio),
+        skills: objList(d.skills, s => ({
+            category: str(s.category),
+            items:    strList(s.items),
+        }), s => s.category && s.items.length),
+        gaps:         strList(d.gaps),
+        workingStyle: text(d.workingStyle),
+        lookingFor:   text(d.lookingFor),
+    }
+}
+
+/**
+ * Persists a user-edited dump. Used both by the section editors and by the
+ * review step's "Finalize profile", which passes finalized: true.
+ *
+ * @param {string} userId
+ * @param {object} dump
+ * @param {{ finalized?: boolean }} [options]
+ * @returns {Promise<{ ok: true, resume_dump: object } | { ok: false, error: string }>}
+ */
+export const saveResumeDump = async (userId, dump, { finalized } = {}) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    if (!dump || typeof dump !== "object") return { ok: false, error: "resume_dump is missing" }
+
+    const normalized = normalizeDump(dump)
+    const row = await updateResumeDump(userId, normalized, { finalized })
+    if (!row) return { ok: false, error: "No resume dump on file for this user" }
+
+    if (finalized) await finalizeResumeDumpDiff(userId)
+
+    return { ok: true, resume_dump: shapeDump(row) }
 }
 
 export const createResumeDump = async (apiKey, payload) => {

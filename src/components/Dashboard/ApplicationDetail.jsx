@@ -2,6 +2,8 @@ import { useState } from 'react'
 import FitBadge from './FitBadge'
 import Progress from '../common/Progress'
 import CopyButton from '../common/CopyButton'
+import EditableSection from '../common/EditableSection'
+import { TextField, TextAreaField, EntryListEditor } from '../common/fields'
 import { BUILD_PHRASES } from '../common/phrases'
 import { toRenderCvYaml } from '../../lib/resumeYaml'
 import { applicationLabel, formatDate, analysisState } from './applicationUtils'
@@ -120,6 +122,80 @@ function BuiltResume({ ja }) {
     )
 }
 
+const BUILT_ROLE_FIELDS = [
+    { key: 'company',   label: 'Company' },
+    { key: 'title',     label: 'Title' },
+    { key: 'startDate', label: 'Start', mono: true },
+    { key: 'endDate',   label: 'End',   mono: true },
+]
+
+const BUILT_SCHOOL_FIELDS = [
+    { key: 'school',    label: 'School' },
+    { key: 'startDate', label: 'Start', mono: true },
+    { key: 'endDate',   label: 'End',   mono: true },
+]
+
+/**
+ * Editor for the built resume. Everything the model assembled is editable —
+ * the point is to trim and reword before applying — but the fit assessment
+ * and letter outline are not touched, since those are the analysis rather
+ * than the deliverable.
+ */
+function BuiltResumeEditor({ draft, setDraft }) {
+    const set = patch => setDraft({ ...draft, ...patch })
+    const c = draft.contact ?? {}
+    const setContact = patch => set({ contact: { ...c, ...patch } })
+
+    return (
+        <>
+            <TextField label="Name"     value={c.name}     onChange={v => setContact({ name: v })} />
+            <TextField label="Headline" value={c.title}    onChange={v => setContact({ title: v })} />
+            <TextField label="Location" value={c.location} onChange={v => setContact({ location: v })} />
+            <TextField label="Email"    value={c.email}    onChange={v => setContact({ email: v })} type="email" />
+            <TextField label="Phone"    value={c.phone}    onChange={v => setContact({ phone: v })} mono />
+
+            <TextAreaField
+                label="Summary" rows={4}
+                value={draft.summary}
+                onChange={v => set({ summary: v })}
+            />
+
+            <div className="field-row">
+                <span className="field-name">Experience</span>
+                <EntryListEditor
+                    value={draft.experience} onChange={v => set({ experience: v })}
+                    fields={BUILT_ROLE_FIELDS}
+                    list={{ key: 'highlights', label: 'Highlights', itemLabel: 'highlight', addLabel: 'Add highlight' }}
+                    blank={() => ({ company: '', title: '', startDate: '', endDate: '', highlights: [] })}
+                    entryLabel="Role" addLabel="Add role"
+                />
+            </div>
+
+            <div className="field-row">
+                <span className="field-name">Education</span>
+                <EntryListEditor
+                    value={draft.education} onChange={v => set({ education: v })}
+                    fields={BUILT_SCHOOL_FIELDS}
+                    list={{ key: 'highlights', label: 'Highlights', itemLabel: 'highlight', addLabel: 'Add highlight' }}
+                    blank={() => ({ school: '', startDate: '', endDate: '', highlights: [] })}
+                    entryLabel="School" addLabel="Add school"
+                />
+            </div>
+
+            <div className="field-row">
+                <span className="field-name">Skills</span>
+                <EntryListEditor
+                    value={draft.skills} onChange={v => set({ skills: v })}
+                    fields={[{ key: 'category', label: 'Category' }]}
+                    list={{ key: 'items', label: 'Skills', itemLabel: 'skill', addLabel: 'Add skill' }}
+                    blank={() => ({ category: '', items: [] })}
+                    entryLabel="Group" addLabel="Add group"
+                />
+            </div>
+        </>
+    )
+}
+
 function CoverLetter({ cl }) {
     return (
         <>
@@ -162,10 +238,11 @@ function CoverLetter({ cl }) {
  * the built resume beside the letter outline and your own inputs.
  *
  * Props:
- *   application: Application
+ *   application:   Application
  *   onBack()
+ *   onSaveResume:  async (jobApplication) => void — omit for read-only
  */
-export default function ApplicationDetail({ application, onBack }) {
+export default function ApplicationDetail({ application, onBack, onSaveResume }) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
     const state = analysisState(application)
 
@@ -205,21 +282,25 @@ export default function ApplicationDetail({ application, onBack }) {
             <div className="detail-grid">
                 {/* Main panel: the deliverable. */}
                 <div className="detail-col detail-col-main">
-                    {ja && (
+                    {ja && (onSaveResume ? (
+                        <EditableSection
+                            label="Built resume"
+                            framed
+                            value={ja}
+                            onSave={onSaveResume}
+                            action={<CopyButton text={() => toRenderCvYaml(ja)} label="Copy as YAML" copiedLabel="Copied" />}
+                            view={v => <BuiltResume ja={v} />}
+                            edit={(d, set) => <BuiltResumeEditor draft={d} setDraft={set} />}
+                        />
+                    ) : (
                         <Section
                             label="Built resume"
                             className="block-framed"
-                            action={
-                                <CopyButton
-                                    text={() => toRenderCvYaml(ja)}
-                                    label="Copy as YAML"
-                                    copiedLabel="Copied"
-                                />
-                            }
+                            action={<CopyButton text={() => toRenderCvYaml(ja)} label="Copy as YAML" copiedLabel="Copied" />}
                         >
                             <BuiltResume ja={ja} />
                         </Section>
-                    )}
+                    ))}
 
                     <Section label="Job description">
                         <Clamped text={jobDescription} long moreLabel="Show full description" />

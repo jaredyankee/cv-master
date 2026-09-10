@@ -68,6 +68,34 @@ export const insertJobApplication = async (a) => {
     return row
 }
 
+/**
+ * Overwrites the built-resume columns of one application with an edited copy.
+ * The fit assessment, cover-letter outline, and the user's own inputs are left
+ * alone: editing the resume is tailoring the deliverable, not re-running the
+ * analysis that produced it.
+ *
+ * Scoped to the owner, so an id alone is not enough to write to a row.
+ * Returns null when the application doesn't exist or isn't theirs.
+ *
+ * @param {string} user_id
+ * @param {string} id
+ * @param {object} ja  the complete job_application object
+ */
+export const updateJobApplicationResume = async (user_id, id, ja) => {
+    const [row] = await sql`
+        UPDATE job_applications SET
+            app_contact    = ${JSON.stringify(ja.contact    ?? {})}::jsonb,
+            app_summary    = ${ja.summary ?? null},
+            app_experience = ${JSON.stringify(ja.experience ?? [])}::jsonb,
+            app_education  = ${JSON.stringify(ja.education  ?? [])}::jsonb,
+            app_skills     = ${JSON.stringify(ja.skills     ?? [])}::jsonb,
+            updated_at     = now()
+        WHERE id = ${id} AND user_id = ${user_id}
+        RETURNING *
+    `
+    return row ?? null
+}
+
 /** One application, scoped to its owner. Returns null if it doesn't exist or isn't theirs. */
 export const getJobApplication = async (user_id, id) => {
     const [row] = await sql`

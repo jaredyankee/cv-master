@@ -7,7 +7,11 @@ import {
     insertJobApplication,
     getJobApplication,
     listJobApplications as listJobApplicationRows,
+    updateJobApplicationResume,
 } from "../db/job-applications.js"
+// Namespaced: this module already has its own lighter `str` for the AI-output
+// path, which must not gain the length caps meant for user-submitted edits.
+import * as n from "../lib/normalize.js"
 
 // Fit assessment + resume assembly is judgment-heavy, so this uses the
 // current Opus with adaptive thinking (on by default there). Forced tool_choice
@@ -224,6 +228,64 @@ export const createJobApplication = async (apiKey, payload) => {
         additional_questions: strs(questions),
         ...fields,
     })
+
+    return { ok: true, application: shapeApplication(row) }
+}
+
+/**
+ * Coerces a client-submitted built resume into the shape the app_* columns
+ * expect. Same defensive posture as the dump: shape it, don't trust it.
+ */
+export const normalizeBuiltResume = (ja) => {
+    const j = ja ?? {}
+    const c = j.contact ?? {}
+
+    return {
+        contact: {
+            name:     n.str(c.name),
+            title:    n.str(c.title),
+            location: n.str(c.location),
+            email:    n.str(c.email),
+            phone:    n.str(c.phone),
+            links:    n.strList(c.links),
+        },
+        summary: n.text(j.summary),
+        experience: n.objList(j.experience, e => ({
+            company:    n.str(e.company),
+            title:      n.str(e.title),
+            startDate:  n.str(e.startDate),
+            endDate:    n.str(e.endDate),
+            highlights: n.strList(e.highlights),
+        }), e => e.company || e.title),
+        education: n.objList(j.education, e => ({
+            school:     n.str(e.school),
+            startDate:  n.str(e.startDate),
+            endDate:    n.str(e.endDate),
+            highlights: n.strList(e.highlights),
+        }), e => e.school),
+        skills: n.objList(j.skills, s => ({
+            category: n.str(s.category),
+            items:    n.strList(s.items),
+        }), s => s.category && s.items.length),
+    }
+}
+
+/**
+ * Persists a user-edited built resume for one application. The fit assessment
+ * and cover-letter outline are untouched — editing the resume is tailoring the
+ * deliverable, not redoing the analysis.
+ *
+ * @returns {Promise<{ ok: true, application: object } | { ok: false, error: string }>}
+ */
+export const saveJobApplicationResume = async (userId, id, jobApplication) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    if (!id)     return { ok: false, error: "Application id is missing" }
+    if (!jobApplication || typeof jobApplication !== "object") {
+        return { ok: false, error: "job_application is missing" }
+    }
+
+    const row = await updateJobApplicationResume(userId, id, normalizeBuiltResume(jobApplication))
+    if (!row) return { ok: false, error: "Application not found" }
 
     return { ok: true, application: shapeApplication(row) }
 }
