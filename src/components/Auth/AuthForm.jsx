@@ -94,8 +94,8 @@ export default function AuthForm() {
 
                 {error && <p className="auth-error" role="alert">{error}</p>}
 
-                <button type="submit" className="auth-submit" disabled={!canSubmit}>
-                    {busy ? 'Please wait…' : isSignup ? 'Create account →' : 'Sign in →'}
+                <button type="submit" className="btn btn-primary auth-submit" disabled={!canSubmit}>
+                    {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Sign in'}
                 </button>
 
                 <p className="auth-switch">

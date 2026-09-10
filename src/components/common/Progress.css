@@ -1,0 +1,101 @@
+/* ── Block variant ───────────────────────────────────────────── */
+
+.progress {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  background: var(--bg-raised);
+}
+
+/* Indeterminate hairline bar — a thin etched track with a travelling fill. */
+.progress-bar {
+  position: relative;
+  height: 2px;
+  background: var(--border);
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.progress-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 32%;
+  background: var(--accent);
+  animation: progress-slide 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes progress-slide {
+  0%   { left: -34%; }
+  100% { left: 102%; }
+}
+
+.progress-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.progress-phrase {
+  font-size: 14px;
+  color: var(--text-h);
+  animation: progress-fade 0.45s ease;
+}
+
+@keyframes progress-fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.progress-clock {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ── Inline variant (list cards) ─────────────────────────────── */
+
+.progress-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.progress-inline-text { color: var(--accent); }
+
+/* ── Dots ────────────────────────────────────────────────────── */
+
+.progress-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 3px;
+  align-items: baseline;
+}
+
+.progress-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: progress-dot 1.4s ease-in-out infinite;
+}
+
+.progress-dots i:nth-child(2) { animation-delay: 0.2s; }
+.progress-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes progress-dot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30%           { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar > span { animation-duration: 4s; }
+  .progress-dots i     { animation: none; opacity: 0.6; }
+  .progress-phrase     { animation: none; }
+}

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import FitBadge from './FitBadge'
+import Progress from '../common/Progress'
+import { BUILD_PHRASES } from '../common/phrases'
 import { applicationLabel, formatDate, analysisState } from './applicationUtils'
 import { WARN_ON_FIT } from '../../schemas/jobApplication'
 
@@ -13,224 +15,250 @@ const INTENT_LABEL = {
     warning:       'Warning',
 }
 
-function Section({ label, children }) {
+function Section({ label, children, className = '' }) {
     return (
-        <section className="detail-section">
+        <section className={`block ${className}`.trim()}>
             <p className="section-label">{label}</p>
             {children}
         </section>
     )
 }
 
-/** Long text with a "show more" clamp. */
-function Clamped({ text, limit = 900 }) {
+/** Long text with a "show more" clamp — the model is generous with prose. */
+function Clamped({ text, limit = 420, long: longClamp = false, moreLabel = 'Show more', lessLabel = 'Show less' }) {
     const [open, setOpen] = useState(false)
-    const long = text.length > limit
+    const overflows = text.length > limit
+    const cls = ['prose', overflows && !open && 'is-clamped', longClamp && 'clamp-long']
+        .filter(Boolean).join(' ')
     return (
         <div>
-            <pre className={`detail-pre${long && !open ? ' is-clamped' : ''}`}>{text}</pre>
-            {long && (
-                <button type="button" className="link-btn" onClick={() => setOpen(v => !v)}>
-                    {open ? 'Show less' : 'Show full description'}
+            <pre className={cls}>{text}</pre>
+            {overflows && (
+                <button type="button" className="more-btn" onClick={() => setOpen(v => !v)}>
+                    {open ? lessLabel : moreLabel}
                 </button>
             )}
         </div>
     )
 }
 
-/** The AI's output, once it exists. Shape: JobApplicationResponse. */
-function Analysis({ response }) {
-    const { fit_criteria, job_application: ja, cover_letter: cl, notes, answers = [], ai_filter } = response
-
+function BuiltResume({ ja }) {
     return (
-        <>
-            {fit_criteria && (
-                <Section label="Fit">
-                    <div className="fit-card">
-                        <FitBadge level={fit_criteria.level} />
-                        <p className="detail-text">{fit_criteria.rationale}</p>
-                        {WARN_ON_FIT.has(fit_criteria.level) && (
-                            <p className="fit-warning">
-                                Generating a resume for this level may not be worth the tokens.
-                            </p>
-                        )}
-                    </div>
-                </Section>
+        <div className="resume">
+            {ja.contact && (
+                <header className="resume-head">
+                    <h3 className="resume-name">{ja.contact.name}</h3>
+                    {has(ja.contact.title) && <p className="resume-title">{ja.contact.title}</p>}
+                    <p className="resume-contact">
+                        {[ja.contact.location, ja.contact.email, ja.contact.phone].filter(has).map((b, i) => (
+                            <span key={i}>{b}</span>
+                        ))}
+                    </p>
+                </header>
             )}
 
-            {ai_filter?.detected && (
-                <div className="filter-alert">
-                    <strong>Hidden instruction in the JD.</strong> {ai_filter.detail}
+            {has(ja.summary) && <p className="resume-summary">{ja.summary}</p>}
+
+            {has(ja.experience) && (
+                <div className="resume-section">
+                    <p className="section-label">Experience</p>
+                    {ja.experience.map((e, i) => (
+                        <article key={i} className="entry">
+                            <div className="entry-head">
+                                <div>
+                                    <div className="entry-title">{e.title}</div>
+                                    <div className="entry-sub">{e.company}</div>
+                                </div>
+                                <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
+                            </div>
+                            {has(e.highlights) && (
+                                <ul className="bullets">
+                                    {e.highlights.map((h, j) => <li key={j}>{h}</li>)}
+                                </ul>
+                            )}
+                        </article>
+                    ))}
                 </div>
             )}
 
-            {ja && (
-                <Section label="Built resume">
-                    <div className="built-resume">
-                        {ja.contact && (
-                            <div className="built-contact">
-                                <div className="dump-name">{ja.contact.name}</div>
-                                {has(ja.contact.title) && <div className="entry-sub">{ja.contact.title}</div>}
-                                <div className="dump-contact-row">
-                                    {[ja.contact.location, ja.contact.email, ja.contact.phone].filter(has).map((b, i) => <span key={i}>{b}</span>)}
-                                </div>
+            {has(ja.education) && (
+                <div className="resume-section">
+                    <p className="section-label">Education</p>
+                    {ja.education.map((e, i) => (
+                        <article key={i} className="entry">
+                            <div className="entry-head">
+                                <div className="entry-title">{e.school}</div>
+                                <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
                             </div>
+                            {has(e.highlights) && (
+                                <ul className="bullets">
+                                    {e.highlights.map((h, j) => <li key={j}>{h}</li>)}
+                                </ul>
+                            )}
+                        </article>
+                    ))}
+                </div>
+            )}
+
+            {has(ja.skills) && (
+                <div className="resume-section">
+                    <p className="section-label">Skills</p>
+                    {ja.skills.map((s, i) => (
+                        <div key={i} className="skill-row">
+                            <span className="skill-category">{s.category}</span>
+                            <span className="skill-items">{(s.items ?? []).join(' · ')}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+function CoverLetter({ cl }) {
+    return (
+        <>
+            {has(cl.mission) && cl.mission !== 'N/A' && (
+                <div className="note">
+                    <span className="note-label">Mission</span>
+                    <p className="prose">{cl.mission}</p>
+                </div>
+            )}
+            {has(cl.culture) && (
+                <div className="note">
+                    <span className="note-label">Culture</span>
+                    <p className="prose">{cl.culture}</p>
+                </div>
+            )}
+            {(cl.intents ?? []).map((intent, i) => (
+                <article key={i} className={`intent intent-${intent.category}`}>
+                    <header className="intent-head">
+                        <span className="intent-category">{INTENT_LABEL[intent.category] ?? intent.category}</span>
+                        {typeof intent.confidence === 'number' && (
+                            <span className="intent-confidence" title="How confident the model is that this belongs in the letter">
+                                <span className="confidence-bar">
+                                    <span style={{ width: `${Math.max(0, Math.min(100, intent.confidence))}%` }} />
+                                </span>
+                                {intent.confidence}
+                            </span>
                         )}
-                        {has(ja.summary) && <p className="detail-text">{ja.summary}</p>}
-
-                        {has(ja.experience) && ja.experience.map((e, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-head">
-                                    <div>
-                                        <div className="entry-title">{e.title}</div>
-                                        <div className="entry-sub">{e.company}</div>
-                                    </div>
-                                    <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
-                                </div>
-                                {has(e.highlights) && (
-                                    <ul className="dump-list">
-                                        {e.highlights.map((h, j) => <li key={j}>{h}</li>)}
-                                    </ul>
-                                )}
-                            </div>
-                        ))}
-
-                        {has(ja.education) && ja.education.map((e, i) => (
-                            <div key={i} className="entry">
-                                <div className="entry-head">
-                                    <div className="entry-title">{e.school}</div>
-                                    <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
-                                </div>
-                                {has(e.highlights) && (
-                                    <ul className="dump-list">
-                                        {e.highlights.map((h, j) => <li key={j}>{h}</li>)}
-                                    </ul>
-                                )}
-                            </div>
-                        ))}
-
-                        {has(ja.skills) && ja.skills.map((s, i) => (
-                            <div key={i} className="skill-row">
-                                <span className="skill-category">{s.category}</span>
-                                <div className="chip-row">
-                                    {(s.items ?? []).map((item, j) => <span key={j} className="chip">{item}</span>)}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Section>
-            )}
-
-            {cl && (
-                <Section label="Cover letter outline">
-                    {has(cl.mission) && cl.mission !== 'N/A' && (
-                        <div className="entry">
-                            <div className="entry-sub">Mission</div>
-                            <p className="entry-body">{cl.mission}</p>
-                        </div>
-                    )}
-                    {has(cl.culture) && (
-                        <div className="entry">
-                            <div className="entry-sub">Culture</div>
-                            <p className="entry-body">{cl.culture}</p>
-                        </div>
-                    )}
-                    {(cl.intents ?? []).map((intent, i) => (
-                        <div key={i} className={`intent-card intent-${intent.category}`}>
-                            <div className="intent-head">
-                                <span className="intent-category">{INTENT_LABEL[intent.category] ?? intent.category}</span>
-                                {typeof intent.confidence === 'number' && (
-                                    <span className="intent-confidence" title="AI confidence this is worth addressing">
-                                        <span className="confidence-bar"><span style={{ width: `${Math.max(0, Math.min(100, intent.confidence))}%` }} /></span>
-                                        {intent.confidence}%
-                                    </span>
-                                )}
-                            </div>
-                            <p className="detail-text">{intent.rationale}</p>
-                            {has(intent.blurb) && <p className="intent-blurb">{intent.blurb}</p>}
-                        </div>
-                    ))}
-                </Section>
-            )}
-
-            {has(answers) && (
-                <Section label="Your questions, answered">
-                    {answers.map((a, i) => (
-                        <div key={i} className="entry">
-                            <div className="entry-sub">{a.question}</div>
-                            <p className="entry-body">{a.answer}</p>
-                        </div>
-                    ))}
-                </Section>
-            )}
-
-            {has(notes) && (
-                <Section label="AI notes">
-                    <p className="detail-text">{notes}</p>
-                </Section>
-            )}
+                    </header>
+                    <p className="prose">{intent.rationale}</p>
+                    {has(intent.blurb) && <p className="intent-blurb">{intent.blurb}</p>}
+                </article>
+            ))}
         </>
     )
 }
 
 /**
- * A single application: what the user entered, and the AI's analysis once available.
+ * One application, on its own screen: what you entered, and the model's
+ * analysis once it lands. Laid out in two columns on wide viewports —
+ * the built resume beside the letter outline and your own inputs.
  *
  * Props:
- *   application: Application — { id, createdAt, jobDescription, notes, questions, response }
+ *   application: Application
  *   onBack()
  */
 export default function ApplicationDetail({ application, onBack }) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
+    const state = analysisState(application)
+
+    const { fit_criteria, job_application: ja, cover_letter: cl, answers = [], ai_filter } = response ?? {}
+    const aiNotes = response?.notes
 
     return (
         <div className="detail">
-            <button type="button" className="detail-back" onClick={onBack}>← All applications</button>
+            <button type="button" className="back-btn" onClick={onBack}>
+                <span aria-hidden="true">←</span> All applications
+            </button>
 
-            <div className="detail-header">
-                <h2 className="detail-title">{applicationLabel(application)}</h2>
+            <header className="detail-head">
+                <h1 className="detail-title">{applicationLabel(application)}</h1>
                 <div className="detail-meta">
-                    <span>Added {formatDate(createdAt)}</span>
-                    {response?.fit_criteria?.level
-                        ? <FitBadge level={response.fit_criteria.level} />
-                        : <span className={`status-pill is-${analysisState(application)}`}>
-                            {analysisState(application) === 'failed' ? 'Failed' : 'Analyzing…'}
-                          </span>}
+                    <span className="meta-date">Added {formatDate(createdAt)}</span>
+                    {fit_criteria?.level && <FitBadge level={fit_criteria.level} />}
+                </div>
+            </header>
+
+            {state === 'pending' && (
+                <Progress phrases={BUILD_PHRASES} startedAt={new Date(createdAt).getTime()} />
+            )}
+
+            {state === 'failed' && (
+                <div className="alert alert-error">
+                    <strong>The analysis didn&rsquo;t complete.</strong> {application.error}
+                </div>
+            )}
+
+            {fit_criteria && (
+                <section className="fit">
+                    <div className="fit-rationale">
+                        <p className="section-label">Fit</p>
+                        <Clamped text={fit_criteria.rationale} limit={340} moreLabel="Full rationale" lessLabel="Less" />
+                        {WARN_ON_FIT.has(fit_criteria.level) && (
+                            <p className="fit-warning">
+                                This one may not be worth the tokens.
+                            </p>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {ai_filter?.detected && (
+                <div className="alert alert-flag">
+                    <strong>Hidden instruction in the posting.</strong> {ai_filter.detail}
+                </div>
+            )}
+
+            <div className="detail-grid">
+                <div className="detail-col">
+                    {ja && (
+                        <Section label="Built resume" className="block-framed">
+                            <BuiltResume ja={ja} />
+                        </Section>
+                    )}
+
+                    <Section label="Job description">
+                        <Clamped text={jobDescription} long moreLabel="Show full description" />
+                    </Section>
+                </div>
+
+                <div className="detail-col">
+                    {cl && <Section label="Cover letter outline"><CoverLetter cl={cl} /></Section>}
+
+                    {has(answers) && (
+                        <Section label="Your questions, answered">
+                            {answers.map((a, i) => (
+                                <div key={i} className="note">
+                                    <span className="note-label">{a.question}</span>
+                                    <p className="prose">{a.answer}</p>
+                                </div>
+                            ))}
+                        </Section>
+                    )}
+
+                    {has(aiNotes) && (
+                        <Section label="Notes from the model">
+                            <p className="prose">{aiNotes}</p>
+                        </Section>
+                    )}
+
+                    {has(notes) && (
+                        <Section label="Your notes">
+                            <pre className="prose">{notes}</pre>
+                        </Section>
+                    )}
+
+                    {has(questions) && (
+                        <Section label={`Questions you added (${questions.length})`}>
+                            <ol className="bullets">
+                                {questions.map((q, i) => <li key={i}>{q}</li>)}
+                            </ol>
+                        </Section>
+                    )}
                 </div>
             </div>
-
-            {response && <Analysis response={response} />}
-
-            {!response && analysisState(application) === 'pending' && (
-                <div className="pending-card">
-                    Assessing fit and building your resume from the dump. This usually takes
-                    under a minute; the page updates on its own.
-                </div>
-            )}
-
-            {!response && analysisState(application) === 'failed' && (
-                <div className="pending-card is-error">
-                    The analysis didn't complete. {application.error}
-                </div>
-            )}
-
-            <Section label="Job description">
-                <Clamped text={jobDescription} />
-            </Section>
-
-            {has(notes) && (
-                <Section label="Your notes">
-                    <pre className="detail-pre">{notes}</pre>
-                </Section>
-            )}
-
-            {has(questions) && (
-                <Section label={`Questions (${questions.length})`}>
-                    <ol className="dump-list">
-                        {questions.map((q, i) => <li key={i}>{q}</li>)}
-                    </ol>
-                </Section>
-            )}
         </div>
     )
 }
