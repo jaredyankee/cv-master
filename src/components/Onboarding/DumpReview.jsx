@@ -83,8 +83,8 @@ export default function DumpReview ({ response, onComplete, onBack }) {
         <div className="review">
 
             <div className="review-header">
-            <button className="back-btn" onClick={onBack}>
-                ← Back
+            <button type="button" className="back-btn" onClick={onBack}>
+                <span aria-hidden="true">←</span> Back
             </button>
             <h2 className="review-title">Review Your Profile</h2>
             <p className="review-subtitle">
@@ -123,7 +123,8 @@ export default function DumpReview ({ response, onComplete, onBack }) {
                             />
                             <div className="revision-actions">
                                 <button
-                                className="accept-btn"
+                                type="button"
+                                className="btn btn-primary"
                                 onClick={() => handleAccept(i)}
                                 >
                                 Accept
@@ -164,8 +165,8 @@ export default function DumpReview ({ response, onComplete, onBack }) {
             )}
 
             <div className="review-footer">
-                <button className="finalize-btn" onClick={handleFinalize}>
-                    Finalize Profile →
+                <button type="button" className="btn btn-primary" onClick={handleFinalize}>
+                    Finalize profile
                 </button>
             </div>
 

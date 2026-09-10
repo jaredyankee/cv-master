@@ -57,9 +57,12 @@ export default function NewApplicationForm({ onSubmit, onCancel }) {
 
     return (
         <form className="app-form" onSubmit={handleSubmit} noValidate>
-            <div className="panel-header">
+            <button type="button" className="back-btn" onClick={onCancel}>
+                <span aria-hidden="true">←</span> All applications
+            </button>
+
+            <div className="panel-head">
                 <h2 className="panel-title">New application</h2>
-                <button type="button" className="link-btn" onClick={onCancel}>Cancel</button>
             </div>
 
             <div className="app-field">
@@ -135,8 +138,9 @@ export default function NewApplicationForm({ onSubmit, onCancel }) {
             </div>
 
             <div className="app-form-footer">
-                <button type="submit" className="primary-btn" disabled={!canSubmit}>
-                    Assess fit →
+                <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
+                    Assess fit
                 </button>
             </div>
         </form>

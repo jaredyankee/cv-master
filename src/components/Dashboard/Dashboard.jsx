@@ -6,9 +6,12 @@ import ApplicationDetail from './ApplicationDetail'
 import './Dashboard.css'
 
 /**
- * Main interface after onboarding.
- *   Left panel  — the finalized resume dump
- *   Right panel — job applications: list, "+" to create, click to view
+ * Main interface after onboarding. Two screens, not one:
+ *
+ *   list   — the resume dump beside the applications list
+ *   focus  — one application, or the new-application form, full width with a
+ *            back button. Viewing an application is its own task; the dump
+ *            would only compete with it for attention.
  *
  * Props:
  *   resumeDump:            ResumeDump
@@ -28,16 +31,16 @@ export default function Dashboard({
     user = null,
     onSignOut,
 }) {
-    // right-panel state: { mode: 'list' | 'new' | 'detail', id }
-    const [panel, setPanel] = useState({ mode: 'list', id: null })
+    // { mode: 'list' | 'new' | 'detail', id }
+    const [view, setView] = useState({ mode: 'list', id: null })
 
-    const selected = panel.mode === 'detail'
-        ? applications.find(a => a.id === panel.id) ?? null
+    const selected = view.mode === 'detail'
+        ? applications.find(a => a.id === view.id) ?? null
         : null
 
-    function showList()      { setPanel({ mode: 'list', id: null }) }
-    function showNew()       { setPanel({ mode: 'new', id: null }) }
-    function showDetail(id)  { setPanel({ mode: 'detail', id }) }
+    const showList   = () => setView({ mode: 'list', id: null })
+    const showNew    = () => setView({ mode: 'new', id: null })
+    const showDetail = (id) => setView({ mode: 'detail', id })
 
     function handleCreate(input) {
         const created = onCreateApplication?.(input)
@@ -45,42 +48,47 @@ export default function Dashboard({
         else showList()
     }
 
-    let right
-    if (panel.mode === 'new') {
-        right = <NewApplicationForm onSubmit={handleCreate} onCancel={showList} />
-    } else if (selected) {
-        right = <ApplicationDetail application={selected} onBack={showList} />
-    } else {
-        right = (
-            <ApplicationsPanel
-                applications={applications}
-                onNew={showNew}
-                onSelect={showDetail}
-            />
+    const topbar = (
+        <header className="topbar">
+            <span className="topbar-brand">CV&nbsp;Master</span>
+            <span className="topbar-user">{user?.email ?? resumeDump?.contact?.name}</span>
+            <nav className="topbar-nav">
+                <button type="button" className="link-btn" onClick={onEditProfile}>Edit profile</button>
+                {onSignOut && (
+                    <button type="button" className="link-btn" onClick={onSignOut}>Sign out</button>
+                )}
+            </nav>
+        </header>
+    )
+
+    // ── focus screens: one job at a time, no dump panel ──────────
+    if (view.mode === 'new' || selected) {
+        return (
+            <div className="shell">
+                {topbar}
+                <main className="focus">
+                    {view.mode === 'new'
+                        ? <NewApplicationForm onSubmit={handleCreate} onCancel={showList} />
+                        : <ApplicationDetail application={selected} onBack={showList} />}
+                </main>
+            </div>
         )
     }
 
+    // ── list screen: dump beside applications ────────────────────
     return (
-        <div className="dashboard">
-            <header className="dashboard-topbar">
-                <span className="dashboard-brand">CV Master</span>
-                <span className="dashboard-user">{user?.email ?? resumeDump?.contact?.name}</span>
-                <button type="button" className="link-btn" onClick={onEditProfile}>
-                    Edit profile
-                </button>
-                {onSignOut && (
-                    <button type="button" className="link-btn" onClick={onSignOut}>
-                        Sign out
-                    </button>
-                )}
-            </header>
-
-            <div className="dashboard-body">
-                <aside className="panel panel-dump">
+        <div className="shell">
+            {topbar}
+            <div className="split">
+                <aside className="split-dump">
                     <ResumeDumpPanel dump={resumeDump} answeredQuestions={answeredQuestions} />
                 </aside>
-                <main className="panel panel-apps">
-                    {right}
+                <main className="split-apps">
+                    <ApplicationsPanel
+                        applications={applications}
+                        onNew={showNew}
+                        onSelect={showDetail}
+                    />
                 </main>
             </div>
         </div>
