@@ -1,0 +1,119 @@
+.field-row {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.field-row:last-child { margin-bottom: 0; }
+
+.field-name {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.input.is-mono {
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+
+textarea.input { resize: vertical; }
+
+/* ── list of strings ─────────────────────────────────────────── */
+
+.list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ── reorder / remove controls ───────────────────────────────── */
+
+.row-controls {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, opacity 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--text-h);
+  color: var(--text-h);
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.icon-btn.is-remove:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+/* ── list of objects ─────────────────────────────────────────── */
+
+.entry-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.entry-card {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.entry-card-legend {
+  padding: 0 7px;
+  margin-left: -4px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The controls sit on the card's top-right, clear of the legend. */
+.entry-card > .row-controls {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+}
+
+.entry-card .field-row:first-of-type { margin-top: 4px; }

@@ -137,9 +137,24 @@ The row is written only once the analysis exists, so `fit_level IS NULL` never
 appears. `job_application_status` is the user's lifecycle (draft → applied → …),
 not a processing state.
 
+## Editing
+
+Both the dump and each built resume are user-editable, per section.
+
+- `PUT /resume-dump` body `{ resume_dump, finalized? }` → `saveResumeDump`.
+  Also the path the review's "Finalize profile" takes, passing `finalized: true`.
+- `PUT /job-application?id=…` body `{ job_application }` → `saveJobApplicationResume`.
+  Touches the `app_*` columns only: editing the resume is tailoring the
+  deliverable, not redoing the fit analysis that produced it.
+
+The client always sends the **whole** object, not a patch; the server normalizes
+it through `private/lib/normalize.js` (trim, type-coerce, length-cap) before it
+reaches SQL. `EditableSection` in `src/components/common/` edits a cloned draft,
+so Cancel is a true discard and a failed save keeps the user's work on screen.
+
 ## Not built yet
 
-- Persisting the finalized review and question answers
 - The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
   come back in one call; the guard needs a fit-only first pass)
 - Updating a stored API key after onboarding
+- Storing the review's answered questions (they persist only in React state)

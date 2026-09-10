@@ -19,6 +19,8 @@ import './Dashboard.css'
  *   applications:          Application[] — newest first
  *   onCreateApplication(input) → Application  — input: { jobDescription, notes, questions }
  *   onEditProfile()        — go back to the review step
+ *   onSaveDump(patch)      — optional; persists a partial dump edit
+ *   onSaveResume(id, ja)   — optional; persists an edited built resume
  *   user                   — { name, email } from the auth session (optional)
  *   onSignOut()            — optional; renders a Sign out button when provided
  */
@@ -28,6 +30,8 @@ export default function Dashboard({
     applications = [],
     onCreateApplication,
     onEditProfile,
+    onSaveDump,
+    onSaveResume,
     user = null,
     onSignOut,
 }) {
@@ -69,7 +73,11 @@ export default function Dashboard({
                 <main className="focus">
                     {view.mode === 'new'
                         ? <NewApplicationForm onSubmit={handleCreate} onCancel={showList} />
-                        : <ApplicationDetail application={selected} onBack={showList} />}
+                        : <ApplicationDetail
+                            application={selected}
+                            onBack={showList}
+                            onSaveResume={onSaveResume && (ja => onSaveResume(selected.id, ja))}
+                          />}
                 </main>
             </div>
         )
@@ -81,7 +89,11 @@ export default function Dashboard({
             {topbar}
             <div className="split">
                 <aside className="split-dump">
-                    <ResumeDumpPanel dump={resumeDump} answeredQuestions={answeredQuestions} />
+                    <ResumeDumpPanel
+                        dump={resumeDump}
+                        answeredQuestions={answeredQuestions}
+                        onSave={onSaveDump}
+                    />
                 </aside>
                 <main className="split-apps">
                     <ApplicationsPanel

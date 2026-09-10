@@ -165,6 +165,73 @@ export const insertResumeDump = async (user_id, resume_dump) => {
 }
 
 /**
+ * Overwrites a user's dump with an edited copy.
+ *
+ * Distinct from insertResumeDump, which is the AI ingestion path and clears
+ * `onboarding_finalized` because a fresh extraction needs reviewing again. A
+ * user edit is a deliberate correction, so it leaves that flag alone unless
+ * `finalized` is passed — which is how the review's "Finalize profile" marks
+ * the dump as reviewed.
+ *
+ * Returns null when the user has no dump to update.
+ *
+ * @param {string} user_id
+ * @param {object} resume_dump  the complete dump; the client sends all of it
+ * @param {{ finalized?: boolean }} [options]
+ */
+export const updateResumeDump = async (user_id, resume_dump, { finalized } = {}) => {
+    const {
+        contact = {},
+        positioning,
+        education,
+        experience,
+        freelance,
+        projects,
+        portfolio,
+        skills,
+        gaps,
+        workingStyle,
+        lookingFor,
+    } = resume_dump
+
+    const [row] = await sql`
+        UPDATE resume_dumps SET
+            contact_name         = ${contact.name     ?? null},
+            contact_email        = ${contact.email    ?? null},
+            contact_phone        = ${contact.phone    ?? null},
+            contact_location     = ${contact.location ?? null},
+            contact_links        = ${contact.links    ?? []},
+            positioning          = ${positioning      ?? null},
+            education            = ${JSON.stringify(education  ?? [])}::jsonb,
+            experience           = ${JSON.stringify(experience ?? [])}::jsonb,
+            freelance            = ${JSON.stringify(freelance  ?? [])}::jsonb,
+            projects             = ${JSON.stringify(projects   ?? [])}::jsonb,
+            portfolio            = ${portfolio        ?? null},
+            skills               = ${JSON.stringify(skills     ?? [])}::jsonb,
+            gaps                 = ${gaps             ?? []},
+            working_style        = ${workingStyle     ?? null},
+            looking_for          = ${lookingFor       ?? null},
+            onboarding_finalized = COALESCE(${finalized ?? null}, onboarding_finalized)
+        WHERE user_id = ${user_id}
+        RETURNING *
+    `;
+
+    return row ?? null
+}
+
+/**
+ * Marks the active review diff as finalized so the poll query stops
+ * returning it. No-op when there is no unfinalized diff.
+ */
+export const finalizeResumeDumpDiff = async (user_id) => {
+    await sql`
+        UPDATE resume_dump_diffs
+        SET finalized = TRUE
+        WHERE user_id = ${user_id} AND finalized = FALSE
+    `
+}
+
+/**
  * Inserts the AI's pending review (revisions + questions) for a dump.
  * A new row is created on each re-analysis; only the unfinalized row
  * is "active." Returns the diff's UUID.
