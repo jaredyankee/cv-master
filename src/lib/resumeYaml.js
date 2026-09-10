@@ -160,6 +160,31 @@ export function splitLinks(links = []) {
 // yields "Computer Science" and not ", Computer Science".
 const DEGREE = /^(B\.?S\.?c?|M\.?S\.?c?|B\.?A\.?|M\.?A\.?|B\.?Eng\.?|M\.?Eng\.?|Ph\.?D\.?|A\.?S\.?|A\.?A\.?S?\.?|MBA)([.,]+\s*|\s+in\s+|\s+)(.+)$/i
 
+// Spelled-out degrees, which older rows use ("Bachelor of Science, Computer
+// Science"). Matched before the abbreviation pattern and normalized to the
+// same short forms RenderCV expects.
+const SPELLED = [
+    [/^bachelor(?:'?s)?\s+of\s+science\b/i,   'BS'],
+    [/^bachelor(?:'?s)?\s+of\s+arts\b/i,      'BA'],
+    [/^bachelor(?:'?s)?\s+of\s+engineering\b/i, 'BEng'],
+    [/^bachelor(?:'?s)?(?:\s+degree)?\b/i,    'BS'],
+    [/^master(?:'?s)?\s+of\s+science\b/i,     'MS'],
+    [/^master(?:'?s)?\s+of\s+arts\b/i,        'MA'],
+    [/^master\s+of\s+business\s+administration\b/i, 'MBA'],
+    [/^master(?:'?s)?(?:\s+degree)?\b/i,      'MS'],
+    [/^doctor\s+of\s+philosophy\b/i,          'PhD'],
+    [/^doctorate\b/i,                         'PhD'],
+    [/^associate(?:'?s)?(?:\s+of\s+(?:science|arts|applied\s+science))?(?:\s+degree)?\b/i, 'AS'],
+]
+
+/** Uppercasing is right for BS/MA/MBA but wrong for these. */
+const DEGREE_CASE = { PHD: 'PhD', BENG: 'BEng', MENG: 'MEng', BSC: 'BSc', MSC: 'MSc' }
+
+const canonicalDegree = (raw) => {
+    const upper = raw.replace(/\./g, '').toUpperCase()
+    return DEGREE_CASE[upper] ?? upper
+}
+
 /** A degree line is short; a prose highlight is not. */
 const DEGREE_MAX_LEN = 60
 
@@ -179,6 +204,16 @@ export function parseDegree(highlights = []) {
     const first = clean(highlights[0])
     if (!first || first.length > DEGREE_MAX_LEN) return NO_DEGREE(highlights)
 
+    // Spelled-out form first: "Bachelor of Science, Computer Science".
+    for (const [pattern, short] of SPELLED) {
+        const hit = first.match(pattern)
+        if (!hit) continue
+        const remainder = first.slice(hit[0].length).replace(/^[.,\s]*(?:in\s+)?/i, '')
+        const area = clean(remainder).replace(/[.,;]+$/, '')
+        if (!area) return NO_DEGREE(highlights)
+        return { degree: short, area, rest: highlights.slice(1) }
+    }
+
     const m = first.match(DEGREE)
     if (!m) return NO_DEGREE(highlights)
 
@@ -189,7 +224,7 @@ export function parseDegree(highlights = []) {
     if (!strongSeparator && !/^[A-Z]/.test(area)) return NO_DEGREE(highlights)
 
     return {
-        degree: m[1].replace(/\./g, '').toUpperCase(),
+        degree: canonicalDegree(m[1]),
         area,
         rest: highlights.slice(1),
     }
@@ -258,9 +293,21 @@ export function toRenderCvYaml(jobApplication) {
     if (education.length) {
         sections.push(`${IND.repeat(2)}education:`)
         for (const e of education) {
-            const { degree, area, rest } = parseDegree(e.highlights)
-            const rows = [`institution: ${scalar(e.school)}`]
-            if (area)   rows.push(`area: ${scalar(area)}`)
+            // The model now returns area and degree as their own fields. Rows
+            // written before that still fold them into highlights, so fall back
+            // to parsing when area is absent.
+            const parsed = has(e.area) ? null : parseDegree(e.highlights)
+            const area   = clean(e.area)   || parsed?.area   || ''
+            const degree = clean(e.degree) || parsed?.degree || ''
+            const rest   = has(e.area) ? (e.highlights ?? []) : (parsed?.rest ?? [])
+
+            // `area` is required by RenderCV, so always emit the key. An empty
+            // value produces a clear "needs at least 1 character" error at the
+            // right field, where omitting it produces a vaguer one.
+            const rows = [
+                `institution: ${scalar(e.school)}`,
+                `area: ${scalar(area)}`,
+            ]
             if (degree) rows.push(`degree: ${scalar(degree)}`)
             const start = normalizeDate(e.startDate)
             const end   = normalizeDate(e.endDate)

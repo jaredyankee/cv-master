@@ -17,10 +17,18 @@ const has = v => Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim()
 const href = link => /^https?:\/\//i.test(link) ? link : `https://${link}`
 const dates = (start, end) => [start, end].filter(has).join(' – ')
 
-const blankRole    = () => ({ company: '', title: '', startDate: '', endDate: '', description: '' })
-const blankProject = () => ({ name: '', description: '', links: [] })
+const blankRole    = () => ({ company: '', title: '', startDate: '', endDate: '', description: '', excludeFromResume: false })
+const blankProject = () => ({ name: '', description: '', links: [], excludeFromResume: false })
 const blankSchool  = () => ({ school: '', degree: '', field: '', startDate: '', endDate: '', notes: '' })
 const blankSkill   = () => ({ category: '', items: [] })
+
+/** Shared by every entry type that can be held back from a resume. */
+const CONTEXT_ONLY_FIELD = {
+    key: 'excludeFromResume',
+    type: 'checkbox',
+    label: 'Context only — keep off built resumes',
+    hint: 'The model still reads it when judging fit and explaining your timeline, but never puts it on a resume. For NDA work, vague client jobs, or a role that only exists to explain a date range.',
+}
 
 const ROLE_FIELDS = [
     { key: 'company',     label: 'Company' },
@@ -28,6 +36,7 @@ const ROLE_FIELDS = [
     { key: 'startDate',   label: 'Start', mono: true, placeholder: '2023-05' },
     { key: 'endDate',     label: 'End',   mono: true, placeholder: 'Present' },
     { key: 'description', label: 'What you did', type: 'textarea', rows: 5 },
+    CONTEXT_ONLY_FIELD,
 ]
 
 const SCHOOL_FIELDS = [
@@ -42,6 +51,7 @@ const SCHOOL_FIELDS = [
 const PROJECT_FIELDS = [
     { key: 'name',        label: 'Name' },
     { key: 'description', label: 'Description', type: 'textarea', rows: 3 },
+    CONTEXT_ONLY_FIELD,
 ]
 
 // ── read views ───────────────────────────────────────────────
@@ -57,12 +67,24 @@ function Links({ links }) {
     )
 }
 
+/** Marks an entry the user has held back from built resumes. */
+function ContextTag() {
+    return (
+        <span className="context-tag" title="Used for fit analysis, never placed on a built resume">
+            Context only
+        </span>
+    )
+}
+
 function RoleView({ entries }) {
     return entries.map((e, i) => (
-        <div className="entry" key={i}>
+        <div className={`entry${e.excludeFromResume ? ' is-context-only' : ''}`} key={i}>
             <div className="entry-head">
                 <div>
-                    <div className="entry-title">{e.title || e.company}</div>
+                    <div className="entry-title">
+                        {e.title || e.company}
+                        {e.excludeFromResume && <ContextTag />}
+                    </div>
                     {has(e.title) && has(e.company) && <div className="entry-sub">{e.company}</div>}
                 </div>
                 <div className="entry-dates">{dates(e.startDate, e.endDate)}</div>
@@ -101,8 +123,11 @@ function DumpSection({ label, children }) {
 
 function ProjectView({ entries }) {
     return entries.map((p, i) => (
-        <div className="entry" key={i}>
-            <div className="entry-title">{p.name}</div>
+        <div className={`entry${p.excludeFromResume ? ' is-context-only' : ''}`} key={i}>
+            <div className="entry-title">
+                {p.name}
+                {p.excludeFromResume && <ContextTag />}
+            </div>
             {has(p.description) && <p className="entry-body">{p.description}</p>}
             <Links links={p.links} />
         </div>

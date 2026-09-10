@@ -47,6 +47,25 @@ export function TextAreaField({ label, value, onChange, placeholder, rows = 4 })
     )
 }
 
+export function CheckboxField({ label, hint, value, onChange }) {
+    const id = `${label}-${nextId()}`
+    return (
+        <div className="field-row">
+            <label className="check-row" htmlFor={id}>
+                <input
+                    id={id}
+                    type="checkbox"
+                    className="check-box"
+                    checked={Boolean(value)}
+                    onChange={e => onChange(e.target.checked)}
+                />
+                <span className="check-label">{label}</span>
+            </label>
+            {hint && <p className="check-hint">{hint}</p>}
+        </div>
+    )
+}
+
 // ── reorder controls ─────────────────────────────────────────
 
 /** Up/down rather than drag: keyboard-reachable and no dependency. */
@@ -158,7 +177,15 @@ export function EntryListEditor({
                         removeLabel={`Remove ${entryLabel} ${i + 1}`}
                     />
 
-                    {fields.map(f => f.type === 'textarea' ? (
+                    {fields.map(f => f.type === 'checkbox' ? (
+                        <CheckboxField
+                            key={f.key}
+                            label={f.label}
+                            hint={f.hint}
+                            value={entry[f.key]}
+                            onChange={v => update(i, { [f.key]: v })}
+                        />
+                    ) : f.type === 'textarea' ? (
                         <TextAreaField
                             key={f.key}
                             label={f.label}

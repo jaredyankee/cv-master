@@ -135,6 +135,8 @@ export function normalizeResult(input) {
         })).filter(e => e.company || e.title),
         app_education: arr(ja.education).map(e => ({
             school:     str(e?.school),
+            area:       str(e?.area),
+            degree:     str(e?.degree),
             startDate:  str(e?.startDate),
             endDate:    str(e?.endDate),
             highlights: strs(e?.highlights),
@@ -259,6 +261,8 @@ export const normalizeBuiltResume = (ja) => {
         }), e => e.company || e.title),
         education: n.objList(j.education, e => ({
             school:     n.str(e.school),
+            area:       n.str(e.area),
+            degree:     n.str(e.degree),
             startDate:  n.str(e.startDate),
             endDate:    n.str(e.endDate),
             highlights: n.strList(e.highlights),
