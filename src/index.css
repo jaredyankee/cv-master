@@ -5,44 +5,44 @@
    fit levels and errors — nothing else gets to be colorful. */
 
 :root {
-  /* surface */
-  --bg:         #ffffff;
-  --bg-sunken:  #f7f7f6;
+  /* surface — warm paper, with cards lifted to white */
+  --bg:         #f3f1ed;
+  --bg-sunken:  #eae7e1;
   --bg-raised:  #ffffff;
 
-  /* ink */
-  --text-h:     #101012;
-  --text:       #55555c;
-  --muted:      #8d8d95;
+  /* ink — slightly cool so it reads as ink, not soot */
+  --text-h:     #14161a;
+  --text:       #3e454f;
+  --muted:      #757c87;
 
   /* rules */
-  --border:        #e5e5e2;
-  --border-strong: #c9c9c3;
+  --border:        #dcd8d1;
+  --border-strong: #bcb6ac;
 
   /* accent — used sparingly */
-  --accent:        #0d7d6f;
-  --accent-bg:     rgba(13, 125, 111, 0.08);
-  --accent-border: rgba(13, 125, 111, 0.38);
+  --accent:        #0b6f63;
+  --accent-bg:     rgba(11, 111, 99, 0.09);
+  --accent-border: rgba(11, 111, 99, 0.40);
 
   /* semantic */
-  --success: #2f7d4f;
-  --error:   #b4443a;
+  --success: #23694a;
+  --error:   #a8352c;
 
   /* fit levels — rendered as outlines, never fills */
-  --fit-mismatch:     #b4443a;
-  --fit-out-of-reach: #a9662a;
-  --fit-reach:        #8a7320;
-  --fit-target:       #0d7d6f;
-  --fit-strong-match: #2f7d4f;
+  --fit-mismatch:     #a8352c;
+  --fit-out-of-reach: #9a5715;
+  --fit-reach:        #7a6512;
+  --fit-target:       #0b6f63;
+  --fit-strong-match: #23694a;
 
   /* revision highlight (Word track-changes style) */
-  --revision-bg:         #fdfaed;
-  --revision-border:     #d8c98a;
-  --revision-note-color: #6b5a1f;
+  --revision-bg:         #faf4dd;
+  --revision-border:     #c8b46a;
+  --revision-note-color: #5c4d18;
 
-  /* shape — sharp, not pill-soft */
-  --radius:    3px;
-  --radius-sm: 2px;
+  /* shape */
+  --radius:    5px;
+  --radius-sm: 3px;
 
   --shadow: none;
 
@@ -50,7 +50,7 @@
   --heading: var(--sans);
   --mono:    ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
-  font: 15px/1.55 var(--sans);
+  font: 16px/1.6 var(--sans);
   letter-spacing: 0;
   color-scheme: light dark;
   color: var(--text);
@@ -61,35 +61,38 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Dark mode is charcoal, not black: a near-black ground makes thin
+   antialiased text halate and read as faint. Body text is deliberately
+   bright — legibility beats moodiness. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:        #0b0b0c;
-    --bg-sunken: #131315;
-    --bg-raised: #0f0f11;
+    --bg:        #17181b;
+    --bg-sunken: #1f2024;
+    --bg-raised: #1c1d21;
 
-    --text-h:    #f2f2f0;
-    --text:      #a2a2a9;
-    --muted:     #6e6e76;
+    --text-h:    #f6f6f5;
+    --text:      #cbccd2;
+    --muted:     #91939b;
 
-    --border:        #242427;
-    --border-strong: #37373c;
+    --border:        #2f3137;
+    --border-strong: #464951;
 
-    --accent:        #2dd4bf;
-    --accent-bg:     rgba(45, 212, 191, 0.10);
-    --accent-border: rgba(45, 212, 191, 0.40);
+    --accent:        #3fdcc7;
+    --accent-bg:     rgba(63, 220, 199, 0.11);
+    --accent-border: rgba(63, 220, 199, 0.42);
 
-    --success: #4ade80;
-    --error:   #f87171;
+    --success: #5ee08d;
+    --error:   #ff8a80;
 
-    --fit-mismatch:     #f87171;
-    --fit-out-of-reach: #fb923c;
-    --fit-reach:        #facc15;
-    --fit-target:       #2dd4bf;
-    --fit-strong-match: #4ade80;
+    --fit-mismatch:     #ff8a80;
+    --fit-out-of-reach: #ffab61;
+    --fit-reach:        #ffd84d;
+    --fit-target:       #3fdcc7;
+    --fit-strong-match: #5ee08d;
 
-    --revision-bg:         #1a1710;
-    --revision-border:     #6b5a1f;
-    --revision-note-color: #e0cf95;
+    --revision-bg:         #241f14;
+    --revision-border:     #8a7430;
+    --revision-note-color: #f0dfa8;
   }
 }
 
@@ -113,9 +116,9 @@ h1, h2, h3 {
   margin: 0;
 }
 
-h1 { font-size: 2rem; line-height: 1.15; }
-h2 { font-size: 1.25rem; line-height: 1.25; }
-h3 { font-size: 1rem;    line-height: 1.35; }
+h1 { font-size: 2rem;    line-height: 1.15; }
+h2 { font-size: 1.3rem;  line-height: 1.25; }
+h3 { font-size: 1.05rem; line-height: 1.35; }
 
 p { margin: 0; }
 
@@ -140,15 +143,16 @@ code {
 
 /* ── Shared primitives ──────────────────────────────────────── */
 
-/* Small uppercase section label — the workhorse of the etched look. */
+/* Small uppercase section label — the workhorse of the etched look.
+   Letterspaced caps at this size need weight to stay legible. */
 .section-label {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 12px;
+  margin: 0 0 13px;
 }
 
 .rule {
@@ -165,13 +169,13 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
+  padding: 9px 17px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: transparent;
+  background: var(--bg-raised);
   color: var(--text-h);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -196,7 +200,7 @@ code {
   padding: 0;
   color: var(--text);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   transition: color 0.12s;
 }
@@ -208,9 +212,9 @@ code {
   border: none;
   padding: 0;
   margin-bottom: 22px;
-  color: var(--muted);
+  color: var(--text);
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -234,10 +238,10 @@ code {
   padding: 11px 13px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--bg-raised);
   color: var(--text-h);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   transition: border-color 0.12s;
 }

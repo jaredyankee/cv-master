@@ -191,20 +191,6 @@ export default function ApplicationDetail({ application, onBack }) {
                 </div>
             )}
 
-            {fit_criteria && (
-                <section className="fit">
-                    <div className="fit-rationale">
-                        <p className="section-label">Fit</p>
-                        <Clamped text={fit_criteria.rationale} limit={340} moreLabel="Full rationale" lessLabel="Less" />
-                        {WARN_ON_FIT.has(fit_criteria.level) && (
-                            <p className="fit-warning">
-                                This one may not be worth the tokens.
-                            </p>
-                        )}
-                    </div>
-                </section>
-            )}
-
             {ai_filter?.detected && (
                 <div className="alert alert-flag">
                     <strong>Hidden instruction in the posting.</strong> {ai_filter.detail}
@@ -212,7 +198,8 @@ export default function ApplicationDetail({ application, onBack }) {
             )}
 
             <div className="detail-grid">
-                <div className="detail-col">
+                {/* Main panel: the deliverable. */}
+                <div className="detail-col detail-col-main">
                     {ja && (
                         <Section label="Built resume" className="block-framed">
                             <BuiltResume ja={ja} />
@@ -224,7 +211,18 @@ export default function ApplicationDetail({ application, onBack }) {
                     </Section>
                 </div>
 
-                <div className="detail-col">
+                {/* Side column: why it fits, then how to write about it. */}
+                <div className="detail-col detail-col-side">
+                    {fit_criteria && (
+                        <section className="fit">
+                            <p className="section-label">Fit</p>
+                            <Clamped text={fit_criteria.rationale} limit={260} moreLabel="Full rationale" lessLabel="Less" />
+                            {WARN_ON_FIT.has(fit_criteria.level) && (
+                                <p className="fit-warning">This one may not be worth the tokens.</p>
+                            )}
+                        </section>
+                    )}
+
                     {cl && <Section label="Cover letter outline"><CoverLetter cl={cl} /></Section>}
 
                     {has(answers) && (

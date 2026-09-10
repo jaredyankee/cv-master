@@ -21,7 +21,7 @@
 }
 
 .topbar-brand {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-h);
@@ -30,7 +30,7 @@
 .topbar-user {
   flex: 1;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -114,7 +114,7 @@
 }
 
 .panel-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-h);
@@ -125,7 +125,7 @@
 
 .count {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
@@ -135,8 +135,8 @@
 .prose,
 .dump-text {
   font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.7;
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
@@ -165,7 +165,7 @@
   border: none;
   padding: 0;
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--accent);
   cursor: pointer;
 }
@@ -174,10 +174,10 @@
 
 .bullets,
 .dump-list {
-  margin: 8px 0 0;
-  padding-left: 17px;
-  font-size: 14px;
-  line-height: 1.6;
+  margin: 9px 0 0;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--text);
 }
 
@@ -192,7 +192,8 @@
 .block-framed > .resume {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 26px 28px;
+  padding: 30px 32px;
+  background: var(--bg-raised);
 }
 
 /* A label + body pair, separated by a hairline. */
@@ -205,7 +206,7 @@
 
 .note-label {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-h);
   margin-bottom: 5px;
@@ -228,28 +229,28 @@
 }
 
 .entry-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-h);
 }
 
 .entry-sub {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text);
 }
 
 .entry-dates {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .entry-body {
-  margin: 7px 0 0;
-  font-size: 14px;
-  line-height: 1.6;
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--text);
   white-space: pre-wrap;
 }
@@ -259,7 +260,7 @@
 .dump-contact { margin-bottom: 30px; }
 
 .dump-name {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-h);
@@ -270,21 +271,21 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px 16px;
-  margin-top: 7px;
+  margin-top: 8px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .dump-section { margin-bottom: 30px; }
 
 .dump-positioning {
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.65;
   color: var(--text-h);
 }
 
-.dump-link { font-size: 14px; }
+.dump-link { font-size: 15px; }
 
 .chip-row {
   display: flex;
@@ -295,9 +296,10 @@
 
 .chip {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   line-height: 1;
-  padding: 5px 8px;
+  padding: 6px 9px;
+  background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
@@ -324,14 +326,14 @@
 .skill-row .chip-row { margin-top: 0; }
 
 .skill-category {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-h);
 }
 
 .skill-items {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
   color: var(--text);
 }
 
@@ -353,14 +355,14 @@
 }
 
 .empty-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-h);
 }
 
 .empty-hint {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 14.5px;
+  line-height: 1.65;
   color: var(--text);
   max-width: 340px;
   margin-bottom: 14px;
@@ -400,7 +402,7 @@
 }
 
 .app-card-title {
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 600;
   color: var(--text-h);
   line-height: 1.4;
@@ -411,9 +413,9 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 14px;
-  margin-top: 7px;
+  margin-top: 8px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
@@ -426,8 +428,8 @@
   align-items: center;
   flex-shrink: 0;
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   line-height: 1;
@@ -450,7 +452,7 @@
 .detail > .progress { margin-bottom: 30px; }
 
 .detail-title {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 600;
   letter-spacing: -0.025em;
   color: var(--text-h);
@@ -468,49 +470,54 @@
 
 .meta-date {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 
+/* The fit box heads the side column — the first thing you want after the
+   title, and the reason the resume below it looks the way it does. */
 .fit {
-  margin-bottom: 30px;
-  padding: 18px 20px;
+  margin-bottom: 34px;
+  padding: 20px 22px;
   border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
+  border-top: 2px solid var(--accent);
   border-radius: var(--radius);
   background: var(--bg-raised);
 }
 
 .fit-warning {
-  margin-top: 10px;
-  font-size: 12.5px;
+  margin-top: 11px;
+  font-size: 13px;
   color: var(--fit-out-of-reach);
 }
 
+/* Two thirds to the resume, one third to the reasoning. */
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 0 48px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 0 44px;
   align-items: start;
 }
 
 .detail-col { min-width: 0; }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .detail-grid { grid-template-columns: 1fr; gap: 0; }
-  .detail-col + .detail-col { margin-top: 34px; }
+  /* On one column the fit box leads, before the resume. */
+  .detail-col-side { order: -1; }
+  .detail-col-main { margin-top: 34px; }
 }
 
 /* ── Alerts ──────────────────────────────────────────────────── */
 
 .alert {
-  padding: 13px 16px;
-  margin-bottom: 26px;
+  padding: 14px 17px;
+  margin-bottom: 28px;
   border: 1px solid var(--border);
   border-left-width: 2px;
   border-radius: var(--radius);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 14.5px;
+  line-height: 1.65;
 }
 
 .alert strong { color: var(--text-h); font-weight: 600; }
@@ -535,14 +542,14 @@
 }
 
 .resume-name {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text-h);
 }
 
 .resume-title {
-  font-size: 13.5px;
+  font-size: 14.5px;
   color: var(--text);
   margin-top: 2px;
 }
@@ -551,15 +558,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 3px 14px;
-  margin-top: 8px;
+  margin-top: 9px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 
 .resume-summary {
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.7;
   color: var(--text);
   margin-bottom: 24px;
 }
@@ -589,8 +596,8 @@
 
 .intent-category {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-h);
@@ -621,11 +628,11 @@
 }
 
 .intent-blurb {
-  margin: 9px 0 0;
-  padding-left: 12px;
+  margin: 10px 0 0;
+  padding-left: 13px;
   border-left: 1px solid var(--border);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
   font-style: italic;
   color: var(--text-h);
 }
@@ -648,8 +655,8 @@
 
 .app-label {
   font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-h);
@@ -662,8 +669,8 @@
 }
 
 .app-hint {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
   color: var(--text);
   margin: -2px 0 2px;
 }
@@ -672,7 +679,7 @@
 
 .app-count {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
   text-align: right;
 }
