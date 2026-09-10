@@ -12,6 +12,8 @@ const makeId = () =>
         ? crypto.randomUUID()
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
+const sleep = ms => new Promise(res => setTimeout(res, ms))
+
 /**
  * Everything a signed-in user sees. Mounted with key={user.id}, so signing out
  * or switching accounts unmounts it and all per-user state is dropped.
@@ -24,33 +26,43 @@ function Workspace({ user, onSignOut }) {
     const [applications, setApplications]             = useState([])    // newest first
     const [isLoading, setIsLoading]                   = useState(false)
 
-    // On mount: if this user already has a dump, skip onboarding.
-    // The user is identified by the bearer token appRequest attaches.
+    // On mount: load the dump (skip onboarding if it exists) and the user's
+    // applications. The user is identified by the bearer token appRequest attaches.
     useEffect(() => {
         let cancelled = false
 
-        async function loadExistingDump() {
+        async function loadWorkspace() {
             try {
                 const res = await appRequest("/resume-dump", "GET")
                 const result = res.ok ? await res.json() : null
                 if (cancelled) return
 
-                if (result?.exists && result.data?.resume_dump) {
-                    const { resume_dump, revisions = [], questions = [] } = result.data
-                    setResumeDump(resume_dump)
-                    // keep the review payload so "Edit profile" can reopen it
-                    setOnboardingResponse({ resume_dump, revisions, questions })
-                    setView('dashboard')
-                } else {
+                if (!(result?.exists && result.data?.resume_dump)) {
                     setView('onboarding')
+                    return
                 }
+
+                const { resume_dump, revisions = [], questions = [] } = result.data
+                setResumeDump(resume_dump)
+                // keep the review payload so "Edit profile" can reopen it
+                setOnboardingResponse({ resume_dump, revisions, questions })
+
+                try {
+                    const appsRes = await appRequest("/job-application", "GET")
+                    const apps = appsRes.ok ? await appsRes.json() : null
+                    if (!cancelled && Array.isArray(apps?.applications)) setApplications(apps.applications)
+                } catch (err) {
+                    console.error("Could not load applications", err)
+                }
+
+                if (!cancelled) setView('dashboard')
             } catch (err) {
                 console.error("Could not check for an existing resume dump", err)
                 if (!cancelled) setView('onboarding')
             }
         }
 
-        loadExistingDump()
+        loadWorkspace()
         return () => { cancelled = true }
     }, [])
 
@@ -68,7 +80,7 @@ function Workspace({ user, onSignOut }) {
             // Poll until AI processing completes (3 s interval, 3 min max)
             const MAX_POLLS = 60;
             for (let i = 0; i < MAX_POLLS; i++) {
-                await new Promise(res => setTimeout(res, 3000));
+                await sleep(3000);
                 const res = await appRequest("/resume-dump?ping=true", "GET");
                 const result = await res.json();
                 if (result?.ready) {
@@ -93,17 +105,59 @@ function Workspace({ user, onSignOut }) {
         setView('dashboard')
     }
 
-    // @todo POST to a job-application function (resume dump + JD + notes + questions)
-    // and store the JobApplicationResponse. Until then applications live in memory.
+    function patchApplication(id, patch) {
+        setApplications(prev => prev.map(a => a.id === id ? { ...a, ...patch } : a))
+    }
+
+    /**
+     * Create a job application. The row id is generated here so the UI can show
+     * the application immediately and poll for exactly that row while the
+     * background function runs the model.
+     */
     function handleCreateApplication(input) {
+        const id = makeId()
         const application = {
-            id:        makeId(),
+            id,
             createdAt: new Date().toISOString(),
             ...input,          // { jobDescription, notes, questions }
-            response:  null,   // JobApplicationResponse once analyzed
+            response:  null,   // filled in once the analysis row exists
+            error:     null,
         }
         setApplications(prev => [application, ...prev])
+
+        // fire and forget; state updates land through patchApplication
+        runApplicationAnalysis(id, input)
         return application
+    }
+
+    async function runApplicationAnalysis(id, input) {
+        try {
+            const res = await appRequest("/job-application-background", "POST", null, { id, ...input })
+            // Background functions answer 202 before running; anything else is a
+            // synchronous rejection (auth, validation, no API key).
+            if (!res.ok) {
+                let message = `Request failed (${res.status})`
+                try { message = (await res.json()).message ?? message } catch { /* no body */ }
+                throw new Error(message)
+            }
+
+            // Poll until the row exists (3 s interval, 5 min max)
+            const MAX_POLLS = 100
+            for (let i = 0; i < MAX_POLLS; i++) {
+                await sleep(3000)
+                const poll = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "GET")
+                if (!poll.ok) continue
+                const result = await poll.json()
+                if (result?.ready && result.data) {
+                    patchApplication(id, { ...result.data, error: null })
+                    return
+                }
+            }
+            throw new Error("Timed out waiting for the analysis. It may still finish; reload to check.")
+        } catch (err) {
+            console.error("Job application analysis failed", err)
+            patchApplication(id, { error: err.message })
+        }
     }
 
     if (view === 'loading') {

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import FitBadge from './FitBadge'
-import { applicationLabel, formatDate } from './applicationUtils'
+import { applicationLabel, formatDate, analysisState } from './applicationUtils'
 import { WARN_ON_FIT } from '../../schemas/jobApplication'
 
 const has = v => Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim())
@@ -193,18 +193,26 @@ export default function ApplicationDetail({ application, onBack }) {
                     <span>Added {formatDate(createdAt)}</span>
                     {response?.fit_criteria?.level
                         ? <FitBadge level={response.fit_criteria.level} />
-                        : <span className="status-pill">Not analyzed</span>}
+                        : <span className={`status-pill is-${analysisState(application)}`}>
+                            {analysisState(application) === 'failed' ? 'Failed' : 'Analyzing…'}
+                          </span>}
                 </div>
             </div>
 
-            {response
-                ? <Analysis response={response} />
-                : (
-                    <div className="pending-card">
-                        The fit assessment, built resume, and cover letter outline will appear here
-                        once the analysis endpoint is wired up.
-                    </div>
-                )}
+            {response && <Analysis response={response} />}
+
+            {!response && analysisState(application) === 'pending' && (
+                <div className="pending-card">
+                    Assessing fit and building your resume from the dump. This usually takes
+                    under a minute; the page updates on its own.
+                </div>
+            )}
+
+            {!response && analysisState(application) === 'failed' && (
+                <div className="pending-card is-error">
+                    The analysis didn't complete. {application.error}
+                </div>
+            )}
 
             <Section label="Job description">
                 <Clamped text={jobDescription} />

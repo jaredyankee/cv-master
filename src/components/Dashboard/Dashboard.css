@@ -384,6 +384,15 @@
   font-weight: 600;
 }
 
+.status-pill.is-pending { color: var(--accent); background: var(--accent-bg); }
+.status-pill.is-failed  { color: var(--error);  background: var(--code-bg); }
+
+.pending-card.is-error {
+  border-style: solid;
+  border-color: var(--error);
+  color: var(--error);
+}
+
 /* ── new application form ────────────────────────────────── */
 
 .app-form {

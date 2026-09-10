@@ -10,7 +10,7 @@ You write about yourself once, freely and in whatever shape you like. CV Master 
 2. **Ingest.** A background function sends the text to Claude with a forced tool call, so the output always matches the profile schema. The model may reorganize and lightly reword for clarity, but it is instructed never to invent content.
 3. **Review.** Suggested edits appear Word-style: the original text highlighted and uneditable, the model's note, and an editable suggestion you can accept or ignore. Missing information comes back as questions with a text box.
 4. **Dashboard.** Your profile sits on the left. On the right you add job applications: a job description, optional notes, and any extra questions the posting asks.
-5. **Apply.** *(In progress.)* For each application the model returns a fit rating, a resume built from your profile, and a cover-letter outline (mission, culture, points of overlap, gaps). It does not write the cover letter.
+5. **Apply.** For each application the model returns a fit rating, a resume built from your profile, a cover-letter outline (mission, culture, points of overlap, gaps), answers to any questions the posting asks, and a warning if the posting hides an instruction meant to catch automated applicants. It does not write the cover letter.
 
 ## Bring your own key
 
@@ -72,13 +72,13 @@ Enable Auth on the Neon project (console → Auth). Copy the Base URL into both 
 
 ### Database
 
-Three tables are expected: `users`, `resume_dumps` (one per user), and `resume_dump_diffs` (one row per review pass). The column names can be read off the queries in `private/db/`.
+Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_diffs` (one row per review pass), and `job_applications`, plus the enums `fit_level` and `job_application_status`. The column names can be read off the queries in `private/db/`.
 
 ## Status
 
-Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, and returning-user detection.
+Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, returning-user detection, and job applications (fit, built resume, cover-letter outline).
 
-Not yet: an endpoint for job applications (they are held in memory for now) and persisting the finalized review.
+Not yet: persisting the finalized review, and a confirmation step before spending tokens on a Mismatch or Out of Reach role.
 
 ## License
 

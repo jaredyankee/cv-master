@@ -10,7 +10,7 @@ import { ensureUser, saveApiKey } from "../db/users.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
 
 /** Maps a resume_dumps row (snake_case columns) to the ResumeDump shape the UI uses. */
-const shapeDump = (row) => ({
+export const shapeDump = (row) => ({
     contact: {
         name:     row.contact_name,
         email:    row.contact_email,
