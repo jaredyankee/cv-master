@@ -112,3 +112,17 @@
   line-height: 1.65;
   color: var(--muted);
 }
+
+/* ── Phones ──────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .onboarding          { padding: 44px 20px 72px; }
+  .onboarding-header   { margin-bottom: 32px; }
+  .onboarding-title    { font-size: 27px; }
+  .onboarding-tagline  { font-size: 14.5px; }
+  /* The dump is the one field people write at length in; keep it tall, but
+     not taller than the screen it's being typed on. */
+  .dump-textarea       { min-height: 240px; }
+  /* A full-width submit is easier to hit than a right-aligned one. */
+  .form-footer .btn    { flex: 1; }
+}
