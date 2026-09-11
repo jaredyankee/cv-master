@@ -72,9 +72,41 @@
 
 .revision-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   margin-top: 11px;
 }
+
+.revision-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+/* How far the rewrite is from being long enough to be worth reviewing. Only
+   shown while the copy button is disabled, so the disabled state has a reason. */
+.revision-progress {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.revision-use-suggestion {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.revision-use-suggestion:hover { text-decoration: underline; }
 
 .accepted-badge {
   font-family: var(--mono);

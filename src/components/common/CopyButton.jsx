@@ -10,8 +10,16 @@ import './CopyButton.css'
  *                payloads on every render of the parent
  *   label:       idle text
  *   copiedLabel: text shown briefly after a successful copy
+ *   disabled:    there is nothing worth copying yet
+ *   title:       tooltip — worth setting when disabled, to say why
  */
-export default function CopyButton({ text, label = 'Copy', copiedLabel = 'Copied' }) {
+export default function CopyButton({
+    text,
+    label = 'Copy',
+    copiedLabel = 'Copied',
+    disabled = false,
+    title,
+}) {
     const [state, setState] = useState('idle')   // 'idle' | 'copied' | 'error'
 
     useEffect(() => {
@@ -42,6 +50,8 @@ export default function CopyButton({ text, label = 'Copy', copiedLabel = 'Copied
             type="button"
             className={`copy-btn is-${state}`}
             onClick={handleCopy}
+            disabled={disabled}
+            title={title}
             aria-live="polite"
         >
             {state === 'copied' ? copiedLabel : state === 'error' ? 'Copy failed' : label}

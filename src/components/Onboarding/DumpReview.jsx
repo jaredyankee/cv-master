@@ -1,5 +1,7 @@
 // DumpReview.jsx
 import { useState } from 'react'
+import CopyButton from '../common/CopyButton'
+import { buildRevisionPrompt, isLongEnough, requiredLength } from '../../lib/revisionPrompt'
 import './DumpReview.css'
 
 /**
@@ -34,10 +36,10 @@ function applyRevision(obj, original, replacement) {
 export default function DumpReview ({ response, onComplete, onBack }) {
     const { resume_dump, revisions = [], questions = [] } = response;
 
-    // editable text for each revision (pre-filled with AI suggestion)
-    const [editedTexts, setEditedTexts] = useState(
-        () => revisions.map(r => r.suggested_edit)
-    )
+    // The rewrite the user types for each revision. Starts empty — the model's
+    // suggestion is the textarea's placeholder, so what lands in the dump is
+    // something the user actually wrote.
+    const [editedTexts, setEditedTexts] = useState(() => revisions.map(() => ''))
     // indices of revisions the user has accepted
     const [accepted, setAccepted] = useState(new Set())
     // live copy of the dump — updated as revisions are accepted
@@ -55,7 +57,9 @@ export default function DumpReview ({ response, onComplete, onBack }) {
 
     function handleAccept(i) {
         const { original } = revisions[i]
-        const replacement  = editedTexts[i]
+        const replacement  = editedTexts[i].trim()
+        // Accepting an empty box would delete the original line from the dump.
+        if (!replacement) return
         setCurrentDump(prev => applyRevision(prev, original, replacement))
         setAccepted(prev => new Set([...prev, i]))
     }
@@ -98,7 +102,12 @@ export default function DumpReview ({ response, onComplete, onBack }) {
                 <section className="review-section">
                     <p className="section-label">Revisions ({revisions.length})</p>
 
-                    {revisions.map((revision, i) => (
+                    {revisions.map((revision, i) => {
+                    const written   = editedTexts[i].trim().length
+                    const needed    = requiredLength(revision.original)
+                    const reviewable = isLongEnough(editedTexts[i], revision.original)
+
+                    return (
                     <div
                         key={i}
                         className={`revision-card${accepted.has(i) ? ' is-accepted' : ''}`}
@@ -109,7 +118,7 @@ export default function DumpReview ({ response, onComplete, onBack }) {
                         {/* AI note / reasoning */}
                         <div className="revision-note">{revision.note}</div>
 
-                        {/* editable suggestion or accepted state */}
+                        {/* the user's rewrite, or the accepted state */}
                         <div className="revision-body">
                         {accepted.has(i) ? (
                             <span className="accepted-badge">✓ Accepted</span>
@@ -119,22 +128,51 @@ export default function DumpReview ({ response, onComplete, onBack }) {
                                 className="revision-textarea"
                                 value={editedTexts[i]}
                                 onChange={e => handleEdit(i, e.target.value)}
+                                placeholder={revision.suggested_edit}
+                                aria-label="Your rewrite"
                                 rows={3}
                             />
                             <div className="revision-actions">
+                                <div className="revision-actions-left">
+                                    <CopyButton
+                                        label="Copy for review"
+                                        copiedLabel="Copied"
+                                        disabled={!reviewable}
+                                        title={reviewable
+                                            ? 'Copies the original, the note, and your rewrite as a review prompt'
+                                            : 'Write your rewrite first'}
+                                        text={() => buildRevisionPrompt(revision, editedTexts[i])}
+                                    />
+                                    {!reviewable && needed > 0 && (
+                                        <span className="revision-progress">
+                                            {written}/{needed}
+                                        </span>
+                                    )}
+                                </div>
                                 <button
                                 type="button"
                                 className="btn btn-primary"
                                 onClick={() => handleAccept(i)}
+                                disabled={written === 0}
                                 >
                                 Accept
                                 </button>
                             </div>
+                            {revision.suggested_edit && written === 0 && (
+                                <button
+                                    type="button"
+                                    className="revision-use-suggestion"
+                                    onClick={() => handleEdit(i, revision.suggested_edit)}
+                                >
+                                    Start from the suggestion
+                                </button>
+                            )}
                             </>
                         )}
                         </div>
                     </div>
-                    ))}
+                    )
+                    })}
                 </section>
             )}
 
