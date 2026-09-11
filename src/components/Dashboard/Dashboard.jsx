@@ -3,6 +3,8 @@ import ResumeDumpPanel from './ResumeDumpPanel'
 import ApplicationsPanel from './ApplicationsPanel'
 import NewApplicationForm from './NewApplicationForm'
 import ApplicationDetail from './ApplicationDetail'
+import RegenerateDialog from './RegenerateDialog'
+import CachedDumpChip from './CachedDumpChip'
 import './Dashboard.css'
 
 /**
@@ -23,6 +25,14 @@ import './Dashboard.css'
  *   onSaveResume(id, ja)   — optional; persists an edited built resume
  *   user                   — { name, email } from the auth session (optional)
  *   onSignOut()            — optional; renders a Sign out button when provided
+ *   dumpState              — 'READY' | 'NEW' | 'REVISE'
+ *   cached                 — { dump, at } | null — the previous profile
+ *   hasSourceText          — whether the text behind this profile was kept
+ *   error                  — string | null — a failed lifecycle action
+ *   onRegenerate(mode)     — 'NEW' | 'REVISE'
+ *   onRecoverCache()       — put the cached profile back
+ *   onClearCache()         — delete the cached profile
+ *   onResumeRegeneration() — return to the dump form mid-flow
  */
 export default function Dashboard({
     resumeDump,
@@ -34,11 +44,54 @@ export default function Dashboard({
     onSaveResume,
     user = null,
     onSignOut,
+    dumpState = 'READY',
+    cached = null,
+    hasSourceText = false,
+    error = null,
+    onRegenerate,
+    onRecoverCache,
+    onClearCache,
+    onResumeRegeneration,
 }) {
     // { mode: 'list' | 'new' | 'detail', id }
     const [view, setView] = useState({ mode: 'list', id: null })
     // Which list panel a narrow viewport shows. Ignored by CSS above the breakpoint.
     const [tab, setTab] = useState('apps')
+    const [regenOpen, setRegenOpen] = useState(false)
+
+    const isRegenerating = dumpState !== 'READY'
+
+    /** The regenerate control plus the cached-profile chip, under the panel title. */
+    const dumpHeader = (
+        <div className="dump-header">
+            {error && (
+                <div className="alert alert-error" role="alert">
+                    <strong>Couldn't do that.</strong> {error}
+                </div>
+            )}
+            {cached && (
+                <CachedDumpChip
+                    cached={cached}
+                    onRecover={onRecoverCache}
+                    onClear={onClearCache}
+                />
+            )}
+            {onRegenerate && !isRegenerating && (
+                <button
+                    type="button"
+                    className="btn btn-warning regen-btn"
+                    onClick={() => setRegenOpen(true)}
+                >
+                    Rebuild profile
+                </button>
+            )}
+        </div>
+    )
+
+    async function handleRegenerate(mode) {
+        await onRegenerate?.(mode)
+        setRegenOpen(false)
+    }
 
     const selected = view.mode === 'detail'
         ? applications.find(a => a.id === view.id) ?? null
@@ -128,6 +181,9 @@ export default function Dashboard({
                             dump={resumeDump}
                             answeredQuestions={answeredQuestions}
                             onSave={onSaveDump}
+                            dumpState={dumpState}
+                            header={dumpHeader}
+                            onResume={onResumeRegeneration}
                         />
                     </aside>
                     <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
@@ -135,10 +191,24 @@ export default function Dashboard({
                             applications={applications}
                             onNew={showNew}
                             onSelect={showDetail}
+                            // A new application is built from the profile, and
+                            // right now there isn't one.
+                            disabledReason={isRegenerating
+                                ? 'Finish rebuilding your profile to start a new application.'
+                                : null}
                         />
                     </main>
                 </div>
             </div>
+
+            {regenOpen && (
+                <RegenerateDialog
+                    onConfirm={handleRegenerate}
+                    onCancel={() => setRegenOpen(false)}
+                    hasSourceText={hasSourceText}
+                    applicationCount={applications.length}
+                />
+            )}
         </div>
     )
 }

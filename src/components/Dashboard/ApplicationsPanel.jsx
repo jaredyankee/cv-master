@@ -9,8 +9,12 @@ import { applicationLabel, formatDate, analysisState } from './applicationUtils'
  *   applications: Application[]
  *   onNew()
  *   onSelect(id)
+ *   disabledReason: string | null — why a new application can't be started
+ *                   right now. Existing ones stay open and readable.
  */
-export default function ApplicationsPanel({ applications = [], onNew, onSelect }) {
+export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null }) {
+    const blocked = Boolean(disabledReason)
+
     return (
         <div className="apps">
             <header className="panel-head">
@@ -18,10 +22,20 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect }
                     Applications
                     {applications.length > 0 && <span className="count">{applications.length}</span>}
                 </h2>
-                <button type="button" className="btn btn-primary" onClick={onNew}>
+                <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={onNew}
+                    disabled={blocked}
+                    title={disabledReason ?? undefined}
+                >
                     New application
                 </button>
             </header>
+
+            {blocked && (
+                <p className="apps-blocked">{disabledReason}</p>
+            )}
 
             {applications.length === 0 ? (
                 <div className="empty">
@@ -30,7 +44,13 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect }
                         Paste a job description. CV Master assesses the fit and builds a resume
                         from your dump.
                     </p>
-                    <button type="button" className="btn btn-primary" onClick={onNew}>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={onNew}
+                        disabled={blocked}
+                        title={disabledReason ?? undefined}
+                    >
                         Add your first
                     </button>
                 </div>

@@ -11,6 +11,10 @@ import { TextField, TextAreaField, StringListEditor, EntryListEditor } from '../
  *   answeredQuestions: { question, answer }[]
  *   onSave:            async (patch) => void — a partial dump; omit to make
  *                      the panel read-only
+ *   dumpState:         'READY' | 'NEW' | 'REVISE'
+ *   header:            node rendered under the panel title — the regenerate
+ *                      control and the cached-profile chip
+ *   onResume():        continue an interrupted regeneration
  */
 
 const has = v => Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim())
@@ -136,7 +140,14 @@ function ProjectView({ entries }) {
 
 // ── panel ────────────────────────────────────────────────────
 
-export default function ResumeDumpPanel({ dump, answeredQuestions = [], onSave }) {
+export default function ResumeDumpPanel({
+    dump,
+    answeredQuestions = [],
+    onSave,
+    dumpState = 'READY',
+    header = null,
+    onResume,
+}) {
     if (!dump) return null
 
     const {
@@ -146,12 +157,45 @@ export default function ResumeDumpPanel({ dump, answeredQuestions = [], onSave }
 
     const contactBits = [contact.location, contact.email, contact.phone].filter(has)
 
+    const panelHead = (
+        <>
+            <div className="panel-head"><h2 className="panel-title">Resume dump</h2></div>
+            {header}
+        </>
+    )
+
+    // Mid-regeneration the live profile has been emptied on purpose. Rendering
+    // a dozen "No roles yet" sections would read as data loss, so the panel
+    // says what is actually going on and offers the way back into the flow.
+    if (dumpState !== 'READY') {
+        return (
+            <div className="dump">
+                {panelHead}
+                <div className="empty dump-regenerating">
+                    <p className="empty-title">
+                        {dumpState === 'REVISE' ? 'Revision in progress' : 'Starting over'}
+                    </p>
+                    <p className="empty-hint">
+                        {dumpState === 'REVISE'
+                            ? 'Your profile is cleared while you rework the text you wrote. Nothing is final until you submit it and finish the review.'
+                            : 'Your profile is cleared while you write a new one. Nothing is final until you submit it and finish the review.'}
+                    </p>
+                    {onResume && (
+                        <button type="button" className="btn btn-primary" onClick={onResume}>
+                            {dumpState === 'REVISE' ? 'Continue revising' : 'Write your profile'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
     // Read-only mode: no save handler, so render the plain views.
     if (!onSave) {
         return (
             <div className="dump">
-                <div className="panel-head"><h2 className="panel-title">Resume dump</h2></div>
-                <ReadOnly dump={dump} answeredQuestions={answeredQuestions} />
+                {panelHead}
+                <ReadOnlyDump dump={dump} answeredQuestions={answeredQuestions} />
             </div>
         )
     }
@@ -160,7 +204,7 @@ export default function ResumeDumpPanel({ dump, answeredQuestions = [], onSave }
 
     return (
         <div className="dump">
-            <div className="panel-head"><h2 className="panel-title">Resume dump</h2></div>
+            {panelHead}
 
             <EditableSection
                 label="Contact"
@@ -361,8 +405,11 @@ export default function ResumeDumpPanel({ dump, answeredQuestions = [], onSave }
     )
 }
 
-/** Plain render used when no save handler is supplied. */
-function ReadOnly({ dump, answeredQuestions }) {
+/**
+ * Plain render used when no save handler is supplied, and by the cached-profile
+ * preview — a cached dump is exactly this: a profile you can read but not edit.
+ */
+export function ReadOnlyDump({ dump, answeredQuestions = [] }) {
     const {
         contact = {}, positioning, education = [], experience = [], freelance = [],
         projects = [], portfolio, skills = [], gaps = [], workingStyle, lookingFor,

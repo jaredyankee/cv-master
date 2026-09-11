@@ -26,6 +26,17 @@ function Workspace({ user, onSignOut }) {
     const [applications, setApplications]             = useState([])    // newest first
     const [isLoading, setIsLoading]                   = useState(false)
 
+    // Dump lifecycle. `hasDump` is the row's existence, which is the only
+    // thing that means "this user has dumped before" — a regenerate empties
+    // the dump's fields but never deletes the row, so a user mid-regenerate
+    // still belongs on the dashboard rather than at the start of onboarding.
+    const [hasDump, setHasDump]         = useState(false)
+    const [dumpState, setDumpState]     = useState('READY') // 'NEW' | 'REVISE' | 'READY'
+    const [cached, setCached]           = useState(null)    // { dump, at } — the previous profile
+    const [sourceText, setSourceText]   = useState('')      // what the user typed last time
+    const [hasApiKey, setHasApiKey]     = useState(false)
+    const [dumpError, setDumpError]     = useState(null)
+
     // On mount: load the dump (skip onboarding if it exists) and the user's
     // applications. The user is identified by the bearer token appRequest attaches.
     useEffect(() => {
@@ -42,7 +53,17 @@ function Workspace({ user, onSignOut }) {
                     return
                 }
 
-                const { resume_dump, revisions = [], questions = [] } = result.data
+                const {
+                    resume_dump, revisions = [], questions = [],
+                    dump_state = 'READY', source_text = '', cached_dump = null,
+                    cached_at = null, has_api_key = false,
+                } = result.data
+
+                setHasDump(true)
+                setDumpState(dump_state)
+                setSourceText(source_text ?? '')
+                setCached(cached_dump ? { dump: cached_dump, at: cached_at } : null)
+                setHasApiKey(Boolean(has_api_key))
                 setResumeDump(resume_dump)
                 // keep the review payload so "Edit profile" can reopen it
                 setOnboardingResponse({ resume_dump, revisions, questions })
@@ -69,13 +90,15 @@ function Workspace({ user, onSignOut }) {
 
     async function handleDumpSubmit(dumpText, apiKey) {
         setIsLoading(true)
+        setDumpError(null)
         try {
-            // Kick off background AI processing (returns 202 immediately)
-            await appRequest("/resume-dump-background", "POST", {
-                'X-Api-Key': apiKey
-            }, {
-                resume_dump: dumpText
-            });
+            // Kick off background AI processing (returns 202 immediately).
+            // An empty key means "use the one already on file" — the function
+            // falls back to the stored key, so don't send an empty header.
+            await appRequest("/resume-dump-background", "POST",
+                apiKey ? { 'X-Api-Key': apiKey } : null,
+                { resume_dump: dumpText }
+            );
 
             // Poll until AI processing completes (3 s interval, 3 min max)
             const MAX_POLLS = 60;
@@ -86,15 +109,86 @@ function Workspace({ user, onSignOut }) {
                 if (result?.ready) {
                     setResumeDump(result.data?.resume_dump);
                     setOnboardingResponse(result.data);
+                    // The ingestion put the row back in READY; mirror that
+                    // locally so the dashboard behind the review is correct.
+                    setHasDump(true);
+                    setDumpState('READY');
+                    setSourceText(dumpText);
+                    setHasApiKey(true);
                     setView('review');
                     return;
                 }
             }
-            throw new Error("Timed out waiting for AI response");
+            throw new Error("Timed out waiting for the analysis. It may still finish; reload to check.");
         } catch (err) {
             console.error("Error on dump request", err)
+            setDumpError(err.message ?? "Something went wrong building your profile.")
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    /**
+     * Dump lifecycle actions. All three answer with the dump row's new state,
+     * so the client never has to guess what the server did.
+     */
+    async function dumpAction(body) {
+        const res = await appRequest("/resume-dump", "POST", null, body)
+        if (!res.ok) {
+            let message = `Request failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const { data } = await res.json()
+        setResumeDump(data?.resume_dump ?? null)
+        setDumpState(data?.dump_state ?? 'READY')
+        setSourceText(data?.source_text ?? '')
+        setCached(data?.cached_dump ? { dump: data.cached_dump, at: data.cached_at } : null)
+        return data
+    }
+
+    /**
+     * Start over or revise. Either way the current profile moves to the cache
+     * slot and the user goes to the dump form; the dashboard stays reachable
+     * and will offer to bring them back.
+     */
+    async function handleRegenerate(mode) {
+        setDumpError(null)
+        try {
+            await dumpAction({ action: 'regenerate', mode })
+            // The review payload described the profile that was just cached.
+            setOnboardingResponse(null)
+            setAnsweredQuestions([])
+            setView('onboarding')
+        } catch (err) {
+            console.error("Could not start the regeneration", err)
+            setDumpError(err.message)
+        }
+    }
+
+    /** Put the cached profile back and return to a normal dashboard. */
+    async function handleRecoverCache() {
+        setDumpError(null)
+        try {
+            const data = await dumpAction({ action: 'recover' })
+            if (data?.resume_dump) {
+                setOnboardingResponse({ resume_dump: data.resume_dump, revisions: [], questions: [] })
+            }
+            setView('dashboard')
+        } catch (err) {
+            console.error("Could not recover the cached profile", err)
+            setDumpError(err.message)
+        }
+    }
+
+    /** Drop the cached profile. The live dump is untouched. */
+    async function handleClearCache() {
+        setDumpError(null)
+        try {
+            await dumpAction({ action: 'clear-cache' })
+        } catch (err) {
+            console.error("Could not clear the cached profile", err)
+            setDumpError(err.message)
         }
     }
 
@@ -213,11 +307,13 @@ function Workspace({ user, onSignOut }) {
                 response={onboardingResponse}
                 onComplete={handleReviewComplete}
                 onBack={() => setView('onboarding')}
+                onRegenerate={hasDump ? handleRegenerate : null}
+                error={dumpError}
             />
         )
     }
 
-    if (view === 'dashboard' && resumeDump) {
+    if (view === 'dashboard' && hasDump && resumeDump) {
         return (
             <Dashboard
                 resumeDump={resumeDump}
@@ -229,6 +325,14 @@ function Workspace({ user, onSignOut }) {
                 onSaveResume={handleSaveResume}
                 user={user}
                 onSignOut={onSignOut}
+                dumpState={dumpState}
+                cached={cached}
+                hasSourceText={Boolean(sourceText)}
+                error={dumpError}
+                onRegenerate={handleRegenerate}
+                onRecoverCache={handleRecoverCache}
+                onClearCache={handleClearCache}
+                onResumeRegeneration={() => setView('onboarding')}
             />
         )
     }
@@ -237,6 +341,11 @@ function Workspace({ user, onSignOut }) {
         <OnboardingForm
             onSubmit={handleDumpSubmit}
             isLoading={isLoading}
+            mode={hasDump ? dumpState : 'FIRST'}
+            initialText={dumpState === 'REVISE' ? sourceText : ''}
+            hasApiKey={hasApiKey}
+            error={dumpError}
+            onBack={hasDump ? () => setView('dashboard') : null}
         />
     )
 }

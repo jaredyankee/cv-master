@@ -133,6 +133,46 @@ Postgres on Neon. Tables: `users` (id = Neon Auth user id, `api_key_encrypted`),
 review pass, `finalized`). Column names are visible in `private/db/`. Neon Auth keeps
 its own users in the `neon_auth` schema; `users.id` matches `neon_auth.user.id`.
 
+Migrations are hand-run SQL in `private/db/migrations/`; there is no migration
+runner. Each file is idempotent so a re-run is safe.
+
+## Rebuilding a dump
+
+A user can rebuild their profile without losing what they have. `resume_dumps`
+carries three columns for it:
+
+- `source_text` — the raw text the user submitted, so "Revise" can hand back
+  their own words rather than the model's paraphrase. Null for dumps created
+  before this existed, which is why the Revise option can be disabled.
+- `cached_dump` / `cached_at` — the previous profile, whole. One slot, not a
+  history: a safety net for the rebuild you just started.
+- `dump_state` — `NEW` (start over, empty form), `REVISE` (form pre-filled from
+  `source_text`), `READY` (normal dashboard). A finished ingestion always lands
+  in `READY`.
+
+`POST /resume-dump` drives it: `{ action: 'regenerate', mode }`, `{ action:
+'recover' }`, `{ action: 'clear-cache' }`. Regenerating snapshots the live dump
+into the cache and empties the live columns, so the dashboard shows a
+"rebuilding" panel rather than a profile full of empty sections.
+
+Two rules worth keeping:
+
+- **An unreviewed dump never displaces an existing cache** (`cacheSnapshotFor`).
+  Rejecting a bad extraction from the review screen must not overwrite the
+  reviewed profile it replaced.
+- **There is no `has_dumped` flag.** A `resume_dumps` row only ever exists
+  because an ingestion completed, so the row's existence *is* that fact, and
+  `getResumeDump` returning non-null is how the client knows. A rebuild empties
+  the row's fields but never deletes it, which is what keeps a user
+  mid-rebuild on the dashboard instead of back at first-run onboarding.
+
+`job_applications.resume_dump_id` survives all of this: `resume_dumps` is
+upserted on `user_id`, so the row id never changes.
+
+The Anthropic key falls back to the stored one (`resume-dump-background` →
+`getApiKey`) when the request carries no `x-api-key`, so a rebuild doesn't ask
+for the key again. The field stays on the form as an override.
+
 ## Job applications
 
 `POST /job-application-background` (client supplies the row `id` as a UUID) →
@@ -172,5 +212,6 @@ so Cancel is a true discard and a failed save keeps the user's work on screen.
 
 - The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
   come back in one call; the guard needs a fit-only first pass)
-- Updating a stored API key after onboarding
 - Storing the review's answered questions (they persist only in React state)
+- More than one cached dump. `cached_dump` is a single slot; a second rebuild
+  overwrites it (unless the outgoing dump is unreviewed — see above).

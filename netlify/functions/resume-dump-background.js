@@ -1,6 +1,7 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
+import { getApiKey } from "../../private/db/users.js";
 
 /**
  * @fn resume-dump-background
@@ -51,16 +52,35 @@ export async function handler(event) {
     }
 
     // BYOK: the Anthropic key comes from the form via the X-Api-Key header.
-    // Netlify lowercases incoming header names. ANTHROPIC_API_KEY in the site
-    // env is an optional fallback for single-user deployments.
-    const apiKey = (headers["x-api-key"] ?? process.env.ANTHROPIC_API_KEY ?? "").trim();
+    // Netlify lowercases incoming header names. Falling back to the key stored
+    // at onboarding is what lets a regenerate skip the key field — the user
+    // already gave it once. ANTHROPIC_API_KEY in the site env is a last resort
+    // for single-user deployments.
+    let apiKey = (headers["x-api-key"] ?? "").trim();
+    let keySource = apiKey ? "header" : null;
+
     if (!apiKey) {
-        console.error("resume-dump-background: no Anthropic key in x-api-key header or ANTHROPIC_API_KEY env");
+        try {
+            const stored = await getApiKey(user.userId);
+            if (stored) { apiKey = stored.trim(); keySource = "stored"; }
+        } catch (err) {
+            // A tampered or undecryptable value shouldn't take the request
+            // down; fall through to the env key and then to the 401.
+            console.error("Could not read the stored API key (continuing):", err.message);
+        }
+    }
+    if (!apiKey) {
+        apiKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
+        if (apiKey) keySource = "env";
+    }
+
+    if (!apiKey) {
+        console.error("resume-dump-background: no Anthropic key in x-api-key header, on file for this user, or in ANTHROPIC_API_KEY");
         return { statusCode: 401, body: JSON.stringify({ message: "No API key in request" }) };
     }
     // Safe fingerprint — enough to tell "wrong key" from "no key" without logging the secret
     console.log(
-        `Anthropic key source=${headers["x-api-key"] ? "header" : "env"} ` +
+        `Anthropic key source=${keySource} ` +
         `len=${apiKey.length} prefix=${apiKey.slice(0, 7)} suffix=${apiKey.slice(-4)}`
     );
 

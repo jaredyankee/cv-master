@@ -18,6 +18,12 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   PUT /resume-dump             → { ok: true, data: { resume_dump } }
  *   body: { resume_dump, finalized? }
  *
+ * Lifecycle (regenerating a dump without losing the old one):
+ *   POST /resume-dump            → { ok: true, data: { resume_dump, dump_state, source_text, cached_dump, cached_at, finalized } }
+ *   body: { action: "regenerate", mode: "NEW" | "REVISE" }
+ *         { action: "recover" }      — put the cached profile back
+ *         { action: "clear-cache" }  — drop the cached profile
+ *
  * 401 without a valid Neon Auth token; 500 if the function has no NEON_AUTH_BASE_URL.
  */
 export async function handler(event) {
@@ -27,7 +33,7 @@ export async function handler(event) {
     const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
 
     const method = event.httpMethod;
-    if (method !== "GET" && method !== "PUT") {
+    if (method !== "GET" && method !== "PUT" && method !== "POST") {
         return json(405, { message: "Method not allowed" });
     }
 
@@ -39,12 +45,24 @@ export async function handler(event) {
         return authErrorResponse(err, cors);
     }
 
-    if (method === "PUT") {
+    if (method === "PUT" || method === "POST") {
         let body;
         try {
             body = JSON.parse(event.body ?? "");
         } catch {
             return json(400, { message: "Body is not valid JSON" });
+        }
+
+        if (method === "POST") {
+            try {
+                const act = fnRegistry("registry-dump:ACT");
+                const result = await act(user.userId, body);
+                if (!result.ok) return json(400, { message: result.error });
+                return json(200, { ok: true, data: result.data });
+            } catch (err) {
+                console.error("Error running resume-dump action:", err);
+                return json(500, { message: "Internal server error" });
+            }
         }
 
         try {

@@ -7,31 +7,38 @@ import {
     getResumeDumpByUser,
     updateResumeDump,
     finalizeResumeDumpDiff,
+    cacheAndResetResumeDump,
+    clearCachedDump,
 } from "../db/resume-dump.js";
-import { ensureUser, saveApiKey } from "../db/users.js";
+import { ensureUser, saveApiKey, hasApiKey } from "../db/users.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
 import { str, text, strList, objList } from "../lib/normalize.js";
 
 /** Maps a resume_dumps row (snake_case columns) to the ResumeDump shape the UI uses. */
-export const shapeDump = (row) => ({
-    contact: {
-        name:     row.contact_name,
-        email:    row.contact_email,
-        phone:    row.contact_phone,
-        location: row.contact_location,
-        links:    row.contact_links    ?? [],
-    },
-    positioning:  row.positioning,
-    education:    row.education        ?? [],
-    experience:   row.experience       ?? [],
-    freelance:    row.freelance         ?? [],
-    projects:     row.projects         ?? [],
-    portfolio:    row.portfolio,
-    skills:       row.skills           ?? [],
-    gaps:         row.gaps             ?? [],
-    workingStyle: row.working_style,
-    lookingFor:   row.looking_for,
-})
+export const shapeDump = (input) => {
+    // Callers guard for a missing row, but a dump shaped from nothing should be
+    // an empty dump, not a crash — this runs on every load and every save.
+    const row = input ?? {}
+    return {
+        contact: {
+            name:     row.contact_name,
+            email:    row.contact_email,
+            phone:    row.contact_phone,
+            location: row.contact_location,
+            links:    row.contact_links ?? [],
+        },
+        positioning:  row.positioning,
+        education:    row.education   ?? [],
+        experience:   row.experience  ?? [],
+        freelance:    row.freelance   ?? [],
+        projects:     row.projects    ?? [],
+        portfolio:    row.portfolio,
+        skills:       row.skills      ?? [],
+        gaps:         row.gaps        ?? [],
+        workingStyle: row.working_style,
+        lookingFor:   row.looking_for,
+    }
+}
 
 /**
  * Polling handler for the GET /resume-dump?ping endpoint.
@@ -58,8 +65,13 @@ export const getResumeDumpPoll = async (user_id) => {
  * plus the latest review diff so the UI can go straight to the dashboard
  * (and still offer "Edit profile" → review).
  *
+ * A row existing at all is what "this user has dumped before" means — it is
+ * only ever created by a completed ingestion — so the response carries no
+ * separate flag for it. `dump_state` says where in the regenerate flow they
+ * are, and the client routes on that.
+ *
  * @param {string} user_id
- * @returns {Promise<{ resume_dump: object, revisions: any[], questions: any[], finalized: boolean } | null>}
+ * @returns {Promise<{ resume_dump: object, revisions: any[], questions: any[], finalized: boolean, dump_state: string, source_text: string|null, cached_dump: object|null, cached_at: string|null, has_api_key: boolean } | null>}
  */
 export const getResumeDump = async (user_id) => {
     const row = await getResumeDumpByUser(user_id)
@@ -70,6 +82,120 @@ export const getResumeDump = async (user_id) => {
         revisions:   row.revisions ?? [],
         questions:   row.questions ?? [],
         finalized:   Boolean(row.onboarding_finalized || row.diff_finalized),
+        dump_state:  row.dump_state ?? 'READY',
+        source_text: row.source_text ?? null,
+        cached_dump: row.cached_dump ?? null,
+        cached_at:   row.cached_at ?? null,
+        has_api_key: await hasApiKey(user_id),
+    }
+}
+
+/**
+ * What a regeneration should put in the cache slot, given the dump row it is
+ * about to clear. `null` means "leave whatever is cached alone".
+ *
+ * Regenerating straight off the review screen is the common way to reject a
+ * bad extraction. Caching that extraction would overwrite the reviewed profile
+ * it replaced — the one actually worth keeping — so an unreviewed dump never
+ * displaces an existing cache.
+ *
+ * @param {object} row  a resume_dumps row
+ * @returns {object|null} the outgoing profile in ResumeDump shape, or null
+ */
+export const cacheSnapshotFor = (row) => {
+    const outgoingWasReviewed = Boolean(row?.onboarding_finalized)
+    if (row?.cached_dump && !outgoingWasReviewed) return null
+    return shapeDump(row)
+}
+
+/**
+ * Starts a regeneration. The profile the user has now moves to the cache slot
+ * and the live dump is emptied, so the dashboard shows the "generate" state
+ * rather than a half-real profile.
+ *
+ * Refuses when the live dump is already cleared: a second regenerate would
+ * overwrite the cache with an empty snapshot and lose the profile the first
+ * one was protecting.
+ *
+ * @param {string} userId
+ * @param {'NEW'|'REVISE'} mode
+ */
+export const startDumpRegeneration = async (userId, mode) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    if (mode !== "NEW" && mode !== "REVISE") {
+        return { ok: false, error: "mode must be NEW or REVISE" }
+    }
+
+    const row = await getResumeDumpByUser(userId)
+    if (!row) return { ok: false, error: "No resume dump on file for this user" }
+    if (row.dump_state && row.dump_state !== "READY") {
+        return { ok: false, error: "A regeneration is already in progress" }
+    }
+
+    const updated = await cacheAndResetResumeDump(userId, mode, cacheSnapshotFor(row))
+    if (!updated) return { ok: false, error: "No resume dump on file for this user" }
+
+    return { ok: true, data: dumpStateResponse(updated) }
+}
+
+/**
+ * Puts the cached profile back and returns to READY. Used both by the cache
+ * chip's "Recover" and as the way out of a regeneration the user changed their
+ * mind about.
+ *
+ * The restored profile keeps its finalized flag: it was a reviewed profile
+ * before it was cached, and recovering it is not a new extraction to review.
+ */
+export const recoverCachedDump = async (userId) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+
+    const row = await getResumeDumpByUser(userId)
+    if (!row) return { ok: false, error: "No resume dump on file for this user" }
+    if (!row.cached_dump) return { ok: false, error: "There is nothing cached to recover" }
+
+    const restored = await updateResumeDump(userId, normalizeDump(row.cached_dump), {
+        finalized:  true,
+        dumpState:  "READY",
+        clearCache: true,
+    })
+    if (!restored) return { ok: false, error: "No resume dump on file for this user" }
+
+    return { ok: true, data: dumpStateResponse(restored) }
+}
+
+/** Drops the cached profile. The live dump is untouched. */
+export const clearDumpCache = async (userId) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    const row = await clearCachedDump(userId)
+    if (!row) return { ok: false, error: "No resume dump on file for this user" }
+    return { ok: true, data: dumpStateResponse(row) }
+}
+
+/** The slice of a dump row the lifecycle endpoints hand back to the client. */
+const dumpStateResponse = (row) => ({
+    resume_dump: shapeDump(row),
+    dump_state:  row.dump_state ?? "READY",
+    source_text: row.source_text ?? null,
+    cached_dump: row.cached_dump ?? null,
+    cached_at:   row.cached_at ?? null,
+    finalized:   Boolean(row.onboarding_finalized),
+})
+
+/**
+ * Entry point for POST /resume-dump — the dump lifecycle actions that are not
+ * an ingestion. Kept in one place so the handler stays a thin switch.
+ *
+ * @param {string} userId
+ * @param {{ action?: string, mode?: string }} body
+ */
+export const runDumpAction = async (userId, body) => {
+    const action = body?.action
+    switch (action) {
+        case "regenerate":  return startDumpRegeneration(userId, body?.mode)
+        case "recover":     return recoverCachedDump(userId)
+        case "clear-cache": return clearDumpCache(userId)
+        default:
+            return { ok: false, error: `Unknown action: ${action ?? "(none)"}` }
     }
 }
 
@@ -226,8 +352,10 @@ export const createResumeDump = async (apiKey, payload) => {
                 console.error("Could not store the API key (continuing):", keyErr.message);
             }
 
-            // 3. the dump and its review diff
-            const dump = await insertResumeDump(userId, data.resume_dump);
+            // 3. the dump and its review diff. The raw text is stored
+            //    alongside so "Revise full dump" can hand the user back their
+            //    own words instead of the model's paraphrase of them.
+            const dump = await insertResumeDump(userId, data.resume_dump, { sourceText: user });
             await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
 
 

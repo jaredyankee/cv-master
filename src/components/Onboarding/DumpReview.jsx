@@ -32,8 +32,12 @@ function applyRevision(obj, original, replacement) {
  *   response:   OnboardingResponse — { resume_dump, revisions, questions }
  *   onComplete(finalDump, answeredQuestions) — called on "Finalize Profile"
  *   onBack()    — return to the onboarding form
+ *   onRegenerate(mode) — optional; 'NEW' | 'REVISE'. The escape hatch for an
+ *               extraction that came out wrong: rebuild rather than hand-fix
+ *               a profile that missed the point.
+ *   error:      string | null
  */
-export default function DumpReview ({ response, onComplete, onBack }) {
+export default function DumpReview ({ response, onComplete, onBack, onRegenerate, error = null }) {
     const { resume_dump, revisions = [], questions = [] } = response;
 
     // The rewrite the user types for each revision. Starts empty — the model's
@@ -202,7 +206,32 @@ export default function DumpReview ({ response, onComplete, onBack }) {
                 </section>
             )}
 
+            {error && (
+                <div className="alert alert-error" role="alert">
+                    <strong>That didn't work.</strong> {error}
+                </div>
+            )}
+
             <div className="review-footer">
+                {onRegenerate && (
+                    <div className="review-redo">
+                        <span className="review-redo-label">Not what you meant?</span>
+                        <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => onRegenerate('REVISE')}
+                        >
+                            Revise full dump
+                        </button>
+                        <button
+                            type="button"
+                            className="link-btn"
+                            onClick={() => onRegenerate('NEW')}
+                        >
+                            Start over
+                        </button>
+                    </div>
+                )}
                 <button type="button" className="btn btn-primary" onClick={handleFinalize}>
                     Finalize profile
                 </button>

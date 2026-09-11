@@ -914,3 +914,189 @@
   padding-top: 18px;
   border-top: 1px solid var(--border);
 }
+
+/* ── Rebuilding a profile ────────────────────────────────────── */
+
+.dump-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: -12px 0 26px;
+}
+
+/* A destructive action shouldn't wear the primary ink treatment, but it
+   shouldn't hide either. Outline in the error colour, fill only on hover. */
+.btn-warning {
+  border-color: var(--error);
+  color: var(--error);
+  background: transparent;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--bg);
+}
+
+.btn-danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: var(--bg);
+}
+
+.btn-danger:hover:not(:disabled) { opacity: 0.85; }
+
+.regen-btn { align-self: flex-start; }
+
+.dump-regenerating { align-items: flex-start; text-align: left; }
+
+.apps-blocked {
+  margin: -12px 0 22px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ── Cached profile chip ─────────────────────────────────────── */
+
+.cache-chip {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.cache-chip-icon {
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.cache-chip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cache-chip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.cache-chip-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cache-chip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cache-chip-btn {
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.cache-chip-btn:hover { color: var(--text-h); border-color: var(--border-strong); }
+
+.cache-chip-btn.is-danger {
+  font-size: 12px;
+  letter-spacing: 0;
+  padding: 4px 8px;
+}
+
+.cache-chip-btn.is-danger:hover { color: var(--error); border-color: var(--error); }
+
+.cache-preview-note {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* The preview renders a whole profile; keep it visually one step back from
+   the live panel so it never reads as the profile you have. */
+.cache-preview { opacity: 0.92; }
+
+/* ── Regenerate dialog ───────────────────────────────────────── */
+
+.regen-warning { margin-bottom: 14px; }
+
+.regen-keeps {
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.regen-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.regen-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  text-align: left;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.regen-option:hover:not(:disabled) { border-color: var(--text-h); }
+
+.regen-option:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.regen-option-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.regen-option-body {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  .dump-header   { margin: -8px 0 22px; }
+  .cache-chip    { flex-wrap: wrap; }
+  .cache-chip-text { flex-basis: 100%; order: -1; }
+}

@@ -178,3 +178,33 @@
   .review-subtitle { font-size: 14.5px; }
   .review-footer .btn { flex: 1; }
 }
+
+/* ── Rebuild escape hatch ────────────────────────────────────── */
+
+/* Sits opposite Finalize: same row, other end, quieter treatment. Rebuilding
+   is the rarer choice, but it belongs where the decision is being made. */
+.review-footer { justify-content: space-between; align-items: center; gap: 16px; }
+
+.review-redo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  min-width: 0;
+}
+
+.review-redo-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.review-redo .link-btn { font-size: 13.5px; }
+
+@media (max-width: 700px) {
+  .review-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 18px;
+  }
+  .review-redo { justify-content: center; }
+}
