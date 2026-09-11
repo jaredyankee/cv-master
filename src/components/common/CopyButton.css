@@ -16,9 +16,14 @@
   transition: color 0.12s, border-color 0.12s;
 }
 
-.copy-btn:hover {
+.copy-btn:hover:not(:disabled) {
   color: var(--text-h);
   border-color: var(--border-strong);
+}
+
+.copy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .copy-btn.is-copied {
