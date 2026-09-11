@@ -36,14 +36,6 @@ export function isLongEnough(rewrite, original) {
 
 const INSTRUCTIONS = [
     'Peer-review a revision to my professional profile.',
-    '',
-    'I wrote the original below. An automated review flagged it and gave the',
-    'reason. I rewrote it myself, in my own words.',
-    '',
-    'Review my rewrite: does it actually address the note, is it clearer and',
-    'more specific than the original, and did I drop anything worth keeping?',
-    'Tell me what to change and why — do not rewrite it for me, and do not add',
-    'claims I have not made.',
 ].join('\n')
 
 /**
