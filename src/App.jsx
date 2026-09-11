@@ -1,4 +1,5 @@
 import { appRequest } from "./api"
+import { pollUntil } from "./lib/poll"
 import { authClient, AUTH_CONFIGURED } from "./auth"
 import { useEffect, useState } from "react"
 import AuthForm from "./components/Auth/AuthForm"
@@ -12,7 +13,11 @@ const makeId = () =>
         ? crypto.randomUUID()
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-const sleep = ms => new Promise(res => setTimeout(res, ms))
+// How long each background job is given before the UI gives up waiting.
+// Unchanged from the flat-interval version; only the number of requests
+// spent inside the window has gone down.
+const DUMP_POLL_BUDGET_MS        = 3 * 60 * 1000
+const APPLICATION_POLL_BUDGET_MS = 5 * 60 * 1000
 
 /**
  * Everything a signed-in user sees. Mounted with key={user.id}, so signing out
@@ -45,6 +50,16 @@ function Workspace({ user, onSignOut }) {
         async function loadWorkspace() {
             try {
                 const res = await appRequest("/resume-dump", "GET")
+                if (cancelled) return
+
+                // Signed in, but this deployment's allowlist doesn't include
+                // them. Say so — every other screen would just fail later and
+                // look broken.
+                if (res.status === 403) {
+                    setView('denied')
+                    return
+                }
+
                 const result = res.ok ? await res.json() : null
                 if (cancelled) return
 
@@ -100,24 +115,26 @@ function Workspace({ user, onSignOut }) {
                 { resume_dump: dumpText }
             );
 
-            // Poll until AI processing completes (3 s interval, 3 min max)
-            const MAX_POLLS = 60;
-            for (let i = 0; i < MAX_POLLS; i++) {
-                await sleep(3000);
+            // Poll until AI processing completes, backing off as it drags on
+            // (3 min budget). See src/lib/poll.js for why it isn't a flat interval.
+            const ready = await pollUntil(DUMP_POLL_BUDGET_MS, async () => {
                 const res = await appRequest("/resume-dump?ping=true", "GET");
+                if (!res.ok) return undefined;
                 const result = await res.json();
-                if (result?.ready) {
-                    setResumeDump(result.data?.resume_dump);
-                    setOnboardingResponse(result.data);
-                    // The ingestion put the row back in READY; mirror that
-                    // locally so the dashboard behind the review is correct.
-                    setHasDump(true);
-                    setDumpState('READY');
-                    setSourceText(dumpText);
-                    setHasApiKey(true);
-                    setView('review');
-                    return;
-                }
+                return result?.ready ? result : undefined;
+            });
+
+            if (ready) {
+                setResumeDump(ready.data?.resume_dump);
+                setOnboardingResponse(ready.data);
+                // The ingestion put the row back in READY; mirror that
+                // locally so the dashboard behind the review is correct.
+                setHasDump(true);
+                setDumpState('READY');
+                setSourceText(dumpText);
+                setHasApiKey(true);
+                setView('review');
+                return;
             }
             throw new Error("Timed out waiting for the analysis. It may still finish; reload to check.");
         } catch (err) {
@@ -278,17 +295,17 @@ function Workspace({ user, onSignOut }) {
                 throw new Error(message)
             }
 
-            // Poll until the row exists (3 s interval, 5 min max)
-            const MAX_POLLS = 100
-            for (let i = 0; i < MAX_POLLS; i++) {
-                await sleep(3000)
+            // Poll until the row exists, backing off as it drags on (5 min budget).
+            const ready = await pollUntil(APPLICATION_POLL_BUDGET_MS, async () => {
                 const poll = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "GET")
-                if (!poll.ok) continue
+                if (!poll.ok) return undefined
                 const result = await poll.json()
-                if (result?.ready && result.data) {
-                    patchApplication(id, { ...result.data, error: null })
-                    return
-                }
+                return (result?.ready && result.data) ? result.data : undefined
+            })
+
+            if (ready) {
+                patchApplication(id, { ...ready, error: null })
+                return
             }
             throw new Error("Timed out waiting for the analysis. It may still finish; reload to check.")
         } catch (err) {
@@ -299,6 +316,25 @@ function Workspace({ user, onSignOut }) {
 
     if (view === 'loading') {
         return <div className="placeholder">Loading your profile…</div>
+    }
+
+    if (view === 'denied') {
+        return (
+            <div className="gate">
+                <h1 className="gate-title">You're signed in, but not invited</h1>
+                <p className="gate-body">
+                    This deployment is limited to a few accounts while it's running on
+                    the owner's infrastructure. Nothing is wrong with your account
+                    {user?.email ? <> — <code>{user.email}</code> just isn't on the list</> : null}.
+                </p>
+                <p className="gate-body">
+                    The source is on{' '}
+                    <a href="https://github.com/jaredyankee/cv-master" target="_blank" rel="noreferrer">GitHub</a>
+                    {' '}if you'd like to run your own.
+                </p>
+                <button type="button" className="btn" onClick={onSignOut}>Sign out</button>
+            </div>
+        )
     }
 
     if (view === 'review' && onboardingResponse) {

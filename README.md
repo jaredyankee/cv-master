@@ -61,6 +61,7 @@ npx netlify dev           # serves the Vite app and the functions together
 | `ANTHROPIC_API_KEY` | functions, optional | Fallback when no key is sent from the form. Useful for a single-user deployment |
 | `NEON_AUTH_BASE_URL` | functions | Neon Auth base URL, from Neon console → Auth → Configuration. Used as the JWT issuer |
 | `NEON_AUTH_JWKS_URL` | functions, optional | Defaults to `<NEON_AUTH_BASE_URL>/.well-known/jwks.json` |
+| `ALLOWED_EMAILS` | functions, optional | Limits who may use the deployment. Unset means anyone who can sign in. See [Limiting access](#limiting-access) |
 | `VITE_NEON_AUTH_URL` | front end | Same value as `NEON_AUTH_BASE_URL`, baked into the browser build |
 | `VITE_CURRENT_ENVIRONMENT` | front end | Set to `localenvironment` to point the app at `netlify dev` |
 
@@ -70,9 +71,25 @@ npx netlify dev           # serves the Vite app and the functions together
 
 Enable Auth on the Neon project (console → Auth). Copy the Base URL into both `NEON_AUTH_BASE_URL` and `VITE_NEON_AUTH_URL`, and add the app's origins (your `localhost` dev port and the deployed site) to Neon Auth's trusted origins. Users are stored by Neon in the `neon_auth` schema of the same database; this app's own `users` table is keyed by the same id, which is the `sub` claim of the JWT.
 
+### Limiting access
+
+Users bring their own Anthropic key, so the model bill is theirs. The Neon compute and the Netlify invocations are not — they belong to whoever deployed the site. On a public URL, anyone who can sign up can spend both.
+
+`ALLOWED_EMAILS` limits who may *use* a deployment, separately from who may sign in to it. Leave it unset and the app is open to anyone with an account. Set it and every function returns 403 to everyone else, before any database work:
+
+```
+ALLOWED_EMAILS=you@example.com, afriend@example.com
+```
+
+Environment variables are strings, so the list is delimited rather than an array. Commas, semicolons, spaces and newlines all separate, so a value pasted across several lines works too. Entries are matched case-insensitively against the token's email claim **or** its user id — so if a deployment's tokens carry no email claim, a user id still works and you can't lock yourself out. Changing the list is an environment change and a redeploy; no code changes.
+
+Someone signed in but not on the list sees a short screen saying so, with a link to this repo, rather than a broken app.
+
+Neither this nor the 256 KB request-body cap in `private/lib/limits.js` stops an unauthenticated request from costing one function invocation. Only a rate limit in front of the functions can do that, and that is a platform setting.
+
 ### Database
 
-Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_diffs` (one row per review pass), and `job_applications`, plus the enums `fit_level` and `job_application_status`. The column names can be read off the queries in `private/db/`.
+Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_diffs` (one row per review pass), and `job_applications`, plus the enums `fit_level` and `job_application_status`. The column names can be read off the queries in `private/db/`. Migrations are hand-run SQL in `private/db/migrations/`.
 
 ## Status
 

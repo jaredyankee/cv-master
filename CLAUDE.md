@@ -37,7 +37,8 @@ into a structured profile, then builds per-job resumes from pieces of that profi
   `getAuthToken()` in `src/auth.js`; `appRequest` in `src/api.js` attaches it.
 - Long AI calls run in a Netlify **background** function; the UI polls a GET
   function until the result is in the database. Don't put AI calls in synchronous
-  functions (10 s limit).
+  functions (10 s limit). Polling backs off (`src/lib/poll.js`) rather than
+  running at a flat interval — every poll is an invocation and a Neon query.
 - Structured output comes from a **forced tool call** (`tool_choice: { type: "tool" }`)
   whose `input_schema` is the source of truth. Keep `private/registry/schema.js` and
   the JSDoc typedefs in `src/schemas/` in sync when changing shapes.
@@ -172,6 +173,28 @@ upserted on `user_id`, so the row id never changes.
 The Anthropic key falls back to the stored one (`resume-dump-background` →
 `getApiKey`) when the request carries no `x-api-key`, so a rebuild doesn't ask
 for the key again. The field stays on the form as an override.
+
+## Cost guards
+
+BYOK covers the model bill. It does not cover Neon compute and storage or
+Netlify invocations, which the site owner pays for, so signing in and being
+allowed to *use* a deployment are separate questions.
+
+- **`ALLOWED_EMAILS`** — optional, checked in `requireUser`. Unset or empty
+  means open, so reopening a deployment is an env change, not a code change.
+  Env vars are strings, so it is a delimited list: commas, semicolons, spaces
+  and newlines all separate. Entries match the token's email claim **or** its
+  subject; the subject fallback is deliberate, because an email-only list would
+  lock the owner out of a deployment whose tokens carry no email claim, and the
+  only way back would be a redeploy. A rejected request gets 403 and the client
+  shows a "signed in, not invited" screen rather than failing later.
+- **`MAX_BODY_BYTES`** (`private/lib/limits.js`) — 256 KB, checked *before*
+  auth in every function that takes a body, so an oversized paste never buys a
+  JWKS fetch, a Neon round trip, or background function time.
+
+Neither guard stops an unauthenticated request from costing one invocation;
+only something in front of the functions can. That is a platform setting, not
+a code change.
 
 ## Job applications
 
