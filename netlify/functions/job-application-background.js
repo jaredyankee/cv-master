@@ -2,6 +2,7 @@ import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
 import { getApiKey } from "../../private/db/users.js";
+import { bodyTooLarge } from "../../private/lib/limits.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -28,6 +29,11 @@ export async function handler(event) {
     if (event.httpMethod !== "POST") {
         return { statusCode: 405, body: JSON.stringify({ message: "Method not allowed" }) };
     }
+
+    // Before auth on purpose: a multi-megabyte body shouldn't buy a JWKS fetch,
+    // a Neon round trip, or fifteen minutes of background function time.
+    const oversized = bodyTooLarge(event, cors);
+    if (oversized) return oversized;
 
     let user;
     try {

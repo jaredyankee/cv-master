@@ -1,6 +1,7 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
+import { bodyTooLarge } from "../../private/lib/limits.js";
 
 /**
  * @fn resume-dump
@@ -31,6 +32,9 @@ export async function handler(event) {
     if (cors?.statusCode) return cors;
 
     const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
+
+    const oversized = bodyTooLarge(event, cors);
+    if (oversized) return oversized;
 
     const method = event.httpMethod;
     if (method !== "GET" && method !== "PUT" && method !== "POST") {

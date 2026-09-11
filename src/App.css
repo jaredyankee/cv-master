@@ -12,3 +12,36 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* Signed in, but not on this deployment's allowlist. Reads as a deliberate
+   boundary rather than a failure — this is a public repo and the visitor may
+   well be someone worth impressing. */
+.gate {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 96px 24px;
+  text-align: left;
+}
+
+.gate-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-h);
+  line-height: 1.25;
+  margin: 0 0 14px;
+}
+
+.gate-body {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text);
+  margin: 0 0 14px;
+}
+
+.gate .btn { margin-top: 10px; }
+
+@media (max-width: 700px) {
+  .gate       { padding: 56px 20px; }
+  .gate-title { font-size: 21px; }
+}
