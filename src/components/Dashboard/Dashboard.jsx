@@ -37,6 +37,8 @@ export default function Dashboard({
 }) {
     // { mode: 'list' | 'new' | 'detail', id }
     const [view, setView] = useState({ mode: 'list', id: null })
+    // Which list panel a narrow viewport shows. Ignored by CSS above the breakpoint.
+    const [tab, setTab] = useState('apps')
 
     const selected = view.mode === 'detail'
         ? applications.find(a => a.id === view.id) ?? null
@@ -45,6 +47,13 @@ export default function Dashboard({
     const showList   = () => setView({ mode: 'list', id: null })
     const showNew    = () => setView({ mode: 'new', id: null })
     const showDetail = (id) => setView({ mode: 'detail', id })
+
+    // Both panels share the page scroller, so switching tabs while scrolled
+    // down would drop you into the middle of the other one.
+    function selectTab(next) {
+        setTab(next)
+        window.scrollTo({ top: 0 })
+    }
 
     function handleCreate(input) {
         const created = onCreateApplication?.(input)
@@ -84,24 +93,51 @@ export default function Dashboard({
     }
 
     // ── list screen: dump beside applications ────────────────────
+    // On a phone the two panels can't sit side by side, and stacking them puts
+    // the whole dump above the applications — a lot of scrolling to reach the
+    // part you act on. So narrow viewports get tabs instead. Both panels stay
+    // mounted and CSS hides one, which keeps scroll position and any open
+    // section editor alive when switching.
     return (
         <div className="shell">
             {topbar}
-            <div className="split">
-                <aside className="split-dump">
-                    <ResumeDumpPanel
-                        dump={resumeDump}
-                        answeredQuestions={answeredQuestions}
-                        onSave={onSaveDump}
-                    />
-                </aside>
-                <main className="split-apps">
-                    <ApplicationsPanel
-                        applications={applications}
-                        onNew={showNew}
-                        onSelect={showDetail}
-                    />
-                </main>
+            <div className="list-screen" data-tab={tab}>
+                <nav className="mobile-tabs" role="tablist" aria-label="Dashboard panels">
+                    <button
+                        type="button" role="tab" id="tab-apps"
+                        aria-selected={tab === 'apps'} aria-controls="panel-apps"
+                        className={`mobile-tab${tab === 'apps' ? ' is-active' : ''}`}
+                        onClick={() => selectTab('apps')}
+                    >
+                        Applications
+                        {applications.length > 0 && <span className="count">{applications.length}</span>}
+                    </button>
+                    <button
+                        type="button" role="tab" id="tab-profile"
+                        aria-selected={tab === 'profile'} aria-controls="panel-profile"
+                        className={`mobile-tab${tab === 'profile' ? ' is-active' : ''}`}
+                        onClick={() => selectTab('profile')}
+                    >
+                        Profile
+                    </button>
+                </nav>
+
+                <div className="split">
+                    <aside className="split-dump" id="panel-profile" role="tabpanel" aria-labelledby="tab-profile">
+                        <ResumeDumpPanel
+                            dump={resumeDump}
+                            answeredQuestions={answeredQuestions}
+                            onSave={onSaveDump}
+                        />
+                    </aside>
+                    <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
+                        <ApplicationsPanel
+                            applications={applications}
+                            onNew={showNew}
+                            onSelect={showDetail}
+                        />
+                    </main>
+                </div>
             </div>
         </div>
     )

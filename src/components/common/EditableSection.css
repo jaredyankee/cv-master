@@ -39,3 +39,10 @@
   font-size: 13.5px;
   line-height: 1.55;
 }
+
+/* ── Phones ──────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .editable-view.is-framed { padding: 20px 18px; }
+  .editable-form           { padding: 16px 15px; }
+}

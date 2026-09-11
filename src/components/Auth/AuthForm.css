@@ -89,3 +89,12 @@
 }
 
 .auth-switch-btn:hover { text-decoration: underline; }
+
+/* ── Phones ──────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  /* 104px of dead space above the fold is a lot of a 390px-wide screen. */
+  .auth        { padding: 56px 20px 72px; }
+  .auth-header { margin-bottom: 28px; }
+  .auth-title  { font-size: 25px; }
+}

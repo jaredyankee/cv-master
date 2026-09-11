@@ -6,6 +6,9 @@
   flex: 1;
   min-height: 100svh;
   text-align: left;
+  /* Pinned at the tab breakpoint so the mobile tab bar can stick directly
+     beneath the top bar without guessing its height. */
+  --topbar-h: auto;
 }
 
 .topbar {
@@ -45,6 +48,49 @@
 
 /* ── Layouts ─────────────────────────────────────────────────── */
 
+.list-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Tab bar, phones and small tablets only. Both panels stay mounted and CSS
+   picks which one shows, so an open section editor survives a switch. */
+.mobile-tabs {
+  display: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.mobile-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: -1px;
+  padding: 14px 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.mobile-tab.is-active {
+  color: var(--text-h);
+  border-bottom-color: var(--text-h);
+}
+
+.mobile-tab .count { font-size: 11px; }
+
 /* List screen: the dump beside the applications. */
 .split {
   display: grid;
@@ -71,15 +117,34 @@
   min-width: 0;
 }
 
+/* Below this width the two panels can't sit side by side. Stacking them puts
+   the whole dump above the applications — a long scroll to reach the part you
+   act on — so the panels become tabs and the page keeps a single scroller. */
 @media (max-width: 1000px) {
+  .shell { --topbar-h: 56px; }
+  .topbar {
+    height: var(--topbar-h);
+    align-items: center;
+    padding: 0 24px;
+  }
+
+  .mobile-tabs {
+    display: flex;
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 9;
+  }
+
   .split { grid-template-columns: 1fr; }
   .split-dump {
     border-right: none;
-    border-bottom: 1px solid var(--border);
     max-height: none;
     overflow: visible;
   }
   .split-apps { max-height: none; overflow: visible; }
+
+  .list-screen[data-tab="apps"]    .split-dump { display: none; }
+  .list-screen[data-tab="profile"] .split-apps { display: none; }
 }
 
 /* Focus screen: one application, or the new-application form. */
@@ -91,11 +156,83 @@
   padding: 28px 36px 96px;
 }
 
+/* Phones. The desktop type scale is set for a 1.2fr column roughly 700px wide;
+   at 390px the same sizes leave headings running three lines deep and the body
+   copy crowding both gutters. Everything below is a scale-down, not a restyle. */
 @media (max-width: 700px) {
-  .topbar      { padding: 14px 18px; gap: 14px; }
+  .topbar      { padding: 0 18px; gap: 14px; }
+  .topbar-nav  { gap: 16px; }
+  /* Bare text buttons are a ~22px tap target; pad them out without changing
+     the pinned top-bar height. */
+  .topbar-nav .link-btn { padding: 8px 0; }
+
   .split-dump,
-  .split-apps  { padding: 24px 18px 60px; }
-  .focus       { padding: 20px 18px 72px; }
+  .split-apps  { padding: 22px 18px 64px; }
+  .focus       { padding: 18px 18px 72px; }
+
+  .panel-head,
+  .panel-header { margin-bottom: 20px; }
+  .app-form     { gap: 24px; }
+  .back-btn     { margin-bottom: 18px; }
+  .detail-head  { margin-bottom: 22px; padding-bottom: 16px; }
+
+  /* Headings */
+  .dump-name        { font-size: 20px; }
+  .detail-title     { font-size: 22px; max-width: none; }
+  .resume-name      { font-size: 19px; }
+  .dump-positioning { font-size: 15px; }
+
+  /* Body copy */
+  .prose,
+  .dump-text,
+  .entry-body,
+  .resume-summary,
+  .bullets,
+  .dump-list   { font-size: 14.5px; line-height: 1.6; }
+  .bullets,
+  .dump-list   { padding-left: 17px; }
+
+  /* Boxes: the desktop insets eat a third of the line on a phone. */
+  .block-framed > .resume { padding: 20px 18px; }
+  .fit                    { padding: 16px 17px; margin-bottom: 26px; }
+  .empty                  { padding: 34px 20px; }
+  .block                  { margin-bottom: 28px; }
+  .dump-section           { margin-bottom: 26px; }
+
+  /* Anything under 16px makes iOS Safari zoom the viewport on focus, and it
+     never zooms back out. */
+  .input,
+  .dump-textarea,
+  .api-key-input,
+  .app-textarea,
+  .question-input,
+  .auth-input,
+  .revision-textarea,
+  .question-textarea { font-size: 16px; }
+
+  /* Long unbroken strings — URLs, emails — are the one thing that can push the
+     document wider than the viewport. Let them break rather than overflow. */
+  .chip {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .dump-contact-row,
+  .resume-contact { overflow-wrap: anywhere; }
+}
+
+/* A job title and its dates stop fitting on one line well before the phone
+   breakpoint; below this the dates drop underneath rather than squeezing the
+   title into a column two words wide. */
+@media (max-width: 560px) {
+  .entry-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+  /* The badge keeps its place beside a wrapping title — it's narrow enough,
+     and dropping it below would push the meta line off the first screen. */
+  .app-card-top { align-items: flex-start; }
 }
 
 /* Buttons and inputs are global primitives — see index.css */
@@ -238,6 +375,11 @@
   align-items: baseline;
   gap: 16px;
 }
+
+/* Flex items default to min-width:auto, so a long unbroken title would push the
+   dates out of the column instead of wrapping. */
+.entry-head > :first-child,
+.app-card-top > :first-child { min-width: 0; }
 
 .entry-title {
   font-size: 15px;
@@ -679,6 +821,11 @@
   max-width: 760px;
   margin: 0 auto;
 }
+
+/* The column gap already spaces these; the margins they carry for use
+   elsewhere would double it into a dead band above the first field. */
+.app-form > .back-btn,
+.app-form > .panel-head { margin-bottom: 0; }
 
 .app-field {
   display: flex;
