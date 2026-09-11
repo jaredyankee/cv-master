@@ -126,3 +126,18 @@
   /* A full-width submit is easier to hit than a right-aligned one. */
   .form-footer .btn    { flex: 1; }
 }
+
+/* Marks a field that has a stored fallback, so it reads as an override. */
+.field-optional {
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.onboarding-header .back-btn { margin-bottom: 16px; }
+
+.onboarding > .alert { margin-bottom: 28px; }

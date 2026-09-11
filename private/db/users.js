@@ -33,6 +33,22 @@ export const saveApiKey = async (user_id, plainApiKey) => {
 }
 
 /**
+ * Whether a key is on file, without decrypting it. The UI uses this to make
+ * the key field optional on a regenerate — asking for it again when it is
+ * already stored is a papercut, and it keeps the ciphertext out of this path.
+ *
+ * @param {string} user_id
+ * @returns {Promise<boolean>}
+ */
+export const hasApiKey = async (user_id) => {
+    const [row] = await sql`
+        SELECT api_key_encrypted IS NOT NULL AS present
+        FROM users WHERE id = ${user_id}
+    `
+    return Boolean(row?.present)
+}
+
+/**
  * Retrieves and decrypts a user's Anthropic API key.
  * Returns null if no key is stored.
  * Throws if the stored value has been tampered with.

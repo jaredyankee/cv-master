@@ -1,4 +1,10 @@
-import { createResumeDump, getResumeDumpPoll, getResumeDump, saveResumeDump } from "../objects/resume-dump.js";
+import {
+    createResumeDump,
+    getResumeDumpPoll,
+    getResumeDump,
+    saveResumeDump,
+    runDumpAction,
+} from "../objects/resume-dump.js";
 import {
     createJobApplication,
     getJobApplicationPoll,
@@ -12,6 +18,7 @@ registry.set("registry-dump:POST", createResumeDump);
 registry.set("registry-dump:GET",  getResumeDumpPoll);   // ?ping=true — background job done yet?
 registry.set("registry-dump:LOAD", getResumeDump);       // no ping — does this user have a dump?
 registry.set("registry-dump:PUT",  saveResumeDump);      // user edits, and finalizing the review
+registry.set("registry-dump:ACT",  runDumpAction);       // regenerate / recover / clear-cache
 
 registry.set("job-application:POST", createJobApplication);       // background: AI + insert
 registry.set("job-application:GET",  getJobApplicationPoll);      // ?id=… — does the row exist yet?

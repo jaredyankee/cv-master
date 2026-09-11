@@ -3,38 +3,85 @@ import Progress from '../common/Progress'
 import { INGEST_PHRASES } from '../common/phrases'
 import './OnboardingForm.css'
 
+const COPY = {
+  FIRST: {
+    title: 'CV Master',
+    tagline: 'Build tailored resumes from your professional story.',
+    submit: 'Analyze my profile',
+  },
+  NEW: {
+    title: 'Start over',
+    tagline: 'Write your profile again. Your previous one is cached on the dashboard until you delete it, and your built resumes are untouched.',
+    submit: 'Rebuild my profile',
+  },
+  REVISE: {
+    title: 'Revise your profile',
+    tagline: 'This is the text your current profile was built from. Edit it and resubmit — your previous profile is cached on the dashboard until you delete it.',
+    submit: 'Rebuild my profile',
+  },
+}
+
 /**
  * Step 1 of onboarding — collects the raw resume dump + API key.
  * While the model works, the form is replaced by a live progress panel:
  * a static "Analyzing…" on a call this long reads as a hung page.
  *
+ * Also the rebuild form. A regeneration is the same submit with different
+ * framing, and in REVISE mode the box opens on what the user wrote last time.
+ *
  * Props:
- *   onSubmit(dumpText: string, apiKey: string)
- *   isLoading: boolean
+ *   onSubmit(dumpText: string, apiKey: string) — apiKey is '' when one is
+ *              already stored, which tells the server to use that one
+ *   isLoading:   boolean
+ *   mode:        'FIRST' | 'NEW' | 'REVISE'
+ *   initialText: string — prefill, for REVISE
+ *   hasApiKey:   boolean — a key is on file, so the field is optional
+ *   error:       string | null
+ *   onBack():    optional; shown when there is a dashboard to go back to
  */
-export default function OnboardingForm({ onSubmit, isLoading }) {
-  const [dumpText, setDumpText] = useState('')
+export default function OnboardingForm({
+  onSubmit,
+  isLoading,
+  mode = 'FIRST',
+  initialText = '',
+  hasApiKey = false,
+  error = null,
+  onBack,
+}) {
+  const [dumpText, setDumpText] = useState(initialText)
   const [apiKey, setApiKey]     = useState('')
   const [showKey, setShowKey]   = useState(false)
   const [startedAt, setStartedAt] = useState(null)
 
-  const canSubmit = dumpText.trim().length > 0 && apiKey.trim().length > 0 && !isLoading
+  const copy = COPY[mode] ?? COPY.FIRST
+  // With a key on file the field is an override, not a requirement.
+  const keyReady = hasApiKey || apiKey.trim().length > 0
+  const canSubmit = dumpText.trim().length > 0 && keyReady && !isLoading
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
     setStartedAt(Date.now())
-    onSubmit(dumpText, apiKey)
+    onSubmit(dumpText, apiKey.trim())
   }
 
   return (
     <div className="onboarding">
       <header className="onboarding-header">
-        <h1 className="onboarding-title">CV Master</h1>
-        <p className="onboarding-tagline">
-          Build tailored resumes from your professional story.
-        </p>
+        {onBack && !isLoading && (
+          <button type="button" className="back-btn" onClick={onBack}>
+            <span aria-hidden="true">←</span> Dashboard
+          </button>
+        )}
+        <h1 className="onboarding-title">{copy.title}</h1>
+        <p className="onboarding-tagline">{copy.tagline}</p>
       </header>
+
+      {error && !isLoading && (
+        <div className="alert alert-error" role="alert">
+          <strong>That didn't work.</strong> {error}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="onboarding-waiting">
@@ -72,6 +119,7 @@ export default function OnboardingForm({ onSubmit, isLoading }) {
           <div className="field">
             <label htmlFor="apiKey" className="field-label">
               Anthropic API key
+              {hasApiKey && <span className="field-optional">Optional</span>}
             </label>
             <div className="api-key-row">
               <input
@@ -80,7 +128,7 @@ export default function OnboardingForm({ onSubmit, isLoading }) {
                 className="api-key-input"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
-                placeholder="sk-ant-..."
+                placeholder={hasApiKey ? 'Using your saved key' : 'sk-ant-...'}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -94,13 +142,15 @@ export default function OnboardingForm({ onSubmit, isLoading }) {
               </button>
             </div>
             <span className="field-hint small">
-              Stored encrypted. Never logged.
+              {hasApiKey
+                ? 'Your saved key is used unless you enter a different one. Stored encrypted, never logged.'
+                : 'Stored encrypted. Never logged.'}
             </span>
           </div>
 
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-              Analyze my profile
+              {copy.submit}
             </button>
           </div>
 

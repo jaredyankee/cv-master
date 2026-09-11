@@ -66,6 +66,10 @@ export const getResumeDumpByUser = async (user_id) => {
             d.working_style,
             d.looking_for,
             d.onboarding_finalized,
+            d.dump_state,
+            d.source_text,
+            d.cached_dump,
+            d.cached_at,
             diff.id        AS diff_id,
             diff.finalized AS diff_finalized,
             diff.revisions,
@@ -90,7 +94,7 @@ export const getResumeDumpByUser = async (user_id) => {
  * Resets onboarding_finalized to FALSE on conflict (re-onboarding).
  * Returns the dump's UUID so the caller can insert the diff row.
  */
-export const insertResumeDump = async (user_id, resume_dump) => {
+export const insertResumeDump = async (user_id, resume_dump, { sourceText } = {}) => {
     const {
         contact,
         positioning,
@@ -122,7 +126,9 @@ export const insertResumeDump = async (user_id, resume_dump) => {
             skills,
             gaps,
             working_style,
-            looking_for
+            looking_for,
+            source_text,
+            dump_state
         ) VALUES (
             ${user_id},
             ${contact.name        ?? null},
@@ -139,7 +145,9 @@ export const insertResumeDump = async (user_id, resume_dump) => {
             ${JSON.stringify(skills     ?? [])}::jsonb,
             ${gaps                ?? []},
             ${workingStyle        ?? null},
-            ${lookingFor          ?? null}
+            ${lookingFor          ?? null},
+            ${sourceText          ?? null},
+            'READY'
         )
         ON CONFLICT (user_id) DO UPDATE SET
             contact_name         = EXCLUDED.contact_name,
@@ -157,6 +165,14 @@ export const insertResumeDump = async (user_id, resume_dump) => {
             gaps                 = EXCLUDED.gaps,
             working_style        = EXCLUDED.working_style,
             looking_for          = EXCLUDED.looking_for,
+            -- Keep the text that produced this dump, so "Revise full dump"
+            -- can hand the user back their own words. COALESCE so a caller
+            -- that has no source text doesn't erase the stored one.
+            source_text          = COALESCE(EXCLUDED.source_text, resume_dumps.source_text),
+            -- A finished ingestion always lands in READY, whichever state the
+            -- regenerate flow was in. cached_dump is deliberately untouched:
+            -- the previous profile stays recoverable after the new one lands.
+            dump_state           = 'READY',
             onboarding_finalized = FALSE
         RETURNING *
     `;
@@ -175,11 +191,15 @@ export const insertResumeDump = async (user_id, resume_dump) => {
  *
  * Returns null when the user has no dump to update.
  *
+ * `dumpState` and `clearCache` are what makes this the recover path too:
+ * restoring a cached profile is the same column write plus a return to READY
+ * and an emptied cache slot.
+ *
  * @param {string} user_id
  * @param {object} resume_dump  the complete dump; the client sends all of it
- * @param {{ finalized?: boolean }} [options]
+ * @param {{ finalized?: boolean, dumpState?: 'NEW'|'REVISE'|'READY', clearCache?: boolean }} [options]
  */
-export const updateResumeDump = async (user_id, resume_dump, { finalized } = {}) => {
+export const updateResumeDump = async (user_id, resume_dump, { finalized, dumpState, clearCache = false } = {}) => {
     const {
         contact = {},
         positioning,
@@ -211,11 +231,73 @@ export const updateResumeDump = async (user_id, resume_dump, { finalized } = {})
             gaps                 = ${gaps             ?? []},
             working_style        = ${workingStyle     ?? null},
             looking_for          = ${lookingFor       ?? null},
-            onboarding_finalized = COALESCE(${finalized ?? null}, onboarding_finalized)
+            onboarding_finalized = COALESCE(${finalized ?? null}, onboarding_finalized),
+            dump_state           = COALESCE(${dumpState ?? null}::dump_state, dump_state),
+            cached_dump          = CASE WHEN ${clearCache} THEN NULL ELSE cached_dump END,
+            cached_at            = CASE WHEN ${clearCache} THEN NULL ELSE cached_at   END
         WHERE user_id = ${user_id}
         RETURNING *
     `;
 
+    return row ?? null
+}
+
+/**
+ * Starts a regeneration: snapshots the profile the user has now into the cache
+ * slot, empties the live columns, and records which flow they chose.
+ *
+ * The snapshot is passed in already shaped (camelCase, the shape the UI
+ * renders) rather than assembled in SQL, so there is exactly one mapping
+ * between columns and the ResumeDump shape and it lives in shapeDump.
+ *
+ * `source_text` survives on purpose — REVISE hands it straight back to the
+ * user. So does the diff history; a new ingestion writes a fresh diff.
+ *
+ * @param {string} user_id
+ * @param {'NEW'|'REVISE'} dump_state
+ * @param {object|null} cached_dump  the outgoing profile in ResumeDump shape,
+ *        or null to leave whatever is already cached in place
+ */
+export const cacheAndResetResumeDump = async (user_id, dump_state, cached_dump) => {
+    const replaceCache = cached_dump != null
+    const [row] = await sql`
+        UPDATE resume_dumps SET
+            cached_dump          = CASE WHEN ${replaceCache} THEN ${JSON.stringify(cached_dump ?? null)}::jsonb ELSE cached_dump END,
+            cached_at            = CASE WHEN ${replaceCache} THEN NOW() ELSE cached_at END,
+            dump_state           = ${dump_state}::dump_state,
+            contact_name         = NULL,
+            contact_email        = NULL,
+            contact_phone        = NULL,
+            contact_location     = NULL,
+            contact_links        = ${[]},
+            positioning          = NULL,
+            education            = '[]'::jsonb,
+            experience           = '[]'::jsonb,
+            freelance            = '[]'::jsonb,
+            projects             = '[]'::jsonb,
+            portfolio            = NULL,
+            skills               = '[]'::jsonb,
+            gaps                 = ${[]},
+            working_style        = NULL,
+            looking_for          = NULL,
+            onboarding_finalized = FALSE
+        WHERE user_id = ${user_id}
+        RETURNING *
+    `
+    return row ?? null
+}
+
+/**
+ * Empties the cache slot without touching the live dump. The user has decided
+ * they don't want the old profile back.
+ */
+export const clearCachedDump = async (user_id) => {
+    const [row] = await sql`
+        UPDATE resume_dumps
+        SET cached_dump = NULL, cached_at = NULL
+        WHERE user_id = ${user_id}
+        RETURNING *
+    `
     return row ?? null
 }
 
