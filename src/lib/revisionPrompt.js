@@ -1,4 +1,7 @@
 /**
+ * Clipboard payloads for the review's feedback — the revision cards, and the
+ * worklist beside the rebuild form.
+ *
  * The "copy for peer review" payload behind each revision card.
  *
  * A revision is three things: what the user originally wrote, why the model
@@ -37,6 +40,57 @@ export function isLongEnough(rewrite, original) {
 const INSTRUCTIONS = [
     'Peer-review a revision to my professional profile.',
 ].join('\n')
+
+/**
+ * One question, with the passage it was asked about when there is one.
+ *
+ * @param {{ question?: string, reference?: string }} question
+ */
+export function buildQuestionPrompt(question) {
+    const { question: text = '', reference = '' } = question ?? {}
+    const lines = ['A review of my professional profile raised this question.', '']
+    if (reference?.trim()) {
+        lines.push('--- ABOUT THIS TEXT ---', reference.trim(), '')
+    }
+    lines.push('--- QUESTION ---', text.trim(), '')
+    return lines.join('\n')
+}
+
+/**
+ * The whole outstanding worklist in one paste — every revision and question
+ * still unticked. What you want when you are about to rewrite the dump and
+ * would rather hand an assistant the full list than one item at a time.
+ *
+ * @param {{ revisions?: any[], questions?: any[] }} feedback
+ * @param {(kind: 'revision'|'question', index: number) => boolean} isDone
+ */
+export function buildChecklistPrompt(feedback, isDone = () => false) {
+    const revisions = (feedback?.revisions ?? []).filter((_, i) => !isDone('revision', i))
+    const questions = (feedback?.questions ?? []).filter((_, i) => !isDone('question', i))
+
+    const lines = ['Points raised by a review of my professional profile, still to address.', '']
+
+    if (revisions.length) {
+        lines.push('--- PASSAGES FLAGGED ---', '')
+        revisions.forEach((r, i) => {
+            lines.push(`${i + 1}. "${(r.original ?? '').trim()}"`)
+            lines.push(`   why: ${(r.note ?? '').trim() || '(no reason given)'}`, '')
+        })
+    }
+
+    if (questions.length) {
+        lines.push('--- QUESTIONS ---', '')
+        questions.forEach((q, i) => {
+            lines.push(`${i + 1}. ${(q.question ?? '').trim()}`)
+            if (q.reference?.trim()) lines.push(`   about: "${q.reference.trim()}"`)
+            lines.push('')
+        })
+    }
+
+    if (!revisions.length && !questions.length) lines.push('(nothing outstanding)', '')
+
+    return lines.join('\n')
+}
 
 /**
  * Builds the clipboard text for one revision.

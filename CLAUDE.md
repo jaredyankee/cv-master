@@ -170,6 +170,15 @@ Two rules worth keeping:
 `job_applications.resume_dump_id` survives all of this: `resume_dumps` is
 upserted on `user_id`, so the row id never changes.
 
+In `REVISE` the form carries the review's revisions and questions beside the
+box as a tickable worklist (`ReviseChecklist`) — they are what the rewrite is
+*for*. `NEW` does not get them: starting over discards the text they were
+raised about. The feedback lives in App state as `reviseFeedback`, separate
+from `onboardingResponse`, because that one decides whether "Edit profile"
+opens the review screen and a cleared dump has nothing to review. On reload it
+comes back from the newest diff, which a rebuild doesn't touch. The ticks
+themselves are React state only.
+
 The Anthropic key falls back to the stored one (`resume-dump-background` →
 `getApiKey`) when the request carries no `x-api-key`, so a rebuild doesn't ask
 for the key again. The field stays on the form as an override.
@@ -235,6 +244,7 @@ so Cancel is a true discard and a failed save keeps the user's work on screen.
 
 - The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
   come back in one call; the guard needs a fit-only first pass)
-- Storing the review's answered questions (they persist only in React state)
+- Storing the review's answered questions, and the revise checklist's ticks
+  (both persist only in React state — a reload loses them)
 - More than one cached dump. `cached_dump` is a single slot; a second rebuild
   overwrites it (unless the outgoing dump is unreviewed — see above).

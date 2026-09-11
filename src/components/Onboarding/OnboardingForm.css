@@ -141,3 +141,39 @@
 .onboarding-header .back-btn { margin-bottom: 16px; }
 
 .onboarding > .alert { margin-bottom: 28px; }
+
+/* ── Rebuild form with the review's worklist beside it ───────── */
+
+/* The form keeps its comfortable measure; the checklist takes the space that
+   was empty gutter before. Header and error span both columns so the page
+   still reads as one thing. */
+.onboarding.has-aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 0 44px;
+  max-width: 1240px;
+  align-items: start;
+}
+
+.onboarding.has-aside > .onboarding-header,
+.onboarding.has-aside > .alert {
+  grid-column: 1 / -1;
+}
+
+.onboarding.has-aside > .onboarding-form,
+.onboarding.has-aside > .onboarding-waiting {
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  .onboarding.has-aside {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  /* One column: read what the review said before rewriting, not after. Moving
+     the form down rather than the checklist up keeps the page header first —
+     pulling the checklist above it strands the title below the fold. */
+  .onboarding.has-aside > .onboarding-form,
+  .onboarding.has-aside > .onboarding-waiting { order: 1; }
+  .onboarding.has-aside > .checklist { margin-bottom: 34px; }
+}

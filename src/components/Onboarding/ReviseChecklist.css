@@ -1,0 +1,139 @@
+.checklist {
+  min-width: 0;
+  align-self: start;
+  /* Follows the textarea down a long form rather than scrolling off. */
+  position: sticky;
+  top: 24px;
+  max-height: calc(100svh - 48px);
+  overflow-y: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+.checklist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.checklist-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-h);
+}
+
+.checklist-intro {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.checklist-group { margin-bottom: 22px; }
+.checklist-group:last-child { margin-bottom: 0; }
+
+.checklist-item {
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+
+.checklist-item:first-of-type { border-top: none; padding-top: 0; }
+
+.checklist-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checklist-check {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checklist-summary {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-h);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Ticked: the line stays readable but stops competing for attention, and its
+   detail is hidden by the component — the list shrinks as the work gets done. */
+.checklist-item.is-done .checklist-summary {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.checklist-detail {
+  padding-left: 25px;
+  margin-top: 6px;
+}
+
+.checklist-note,
+.checklist-reference {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* Marked the same way the review screen marks a quoted passage, so it reads as
+   the text being asked about rather than another sentence of the question. */
+.checklist-reference { color: var(--muted); }
+
+.checklist-reference::before {
+  content: 're: ';
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checklist-suggestion {
+  margin: 7px 0 0;
+  padding-left: 11px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.checklist-actions { margin-top: 9px; }
+
+@media (max-width: 1000px) {
+  /* No column to sit beside, so it stops being sticky and just leads the form. */
+  .checklist {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 700px) {
+  .checklist { padding: 16px; }
+  .checklist-summary { font-size: 14px; }
+  .checklist-note,
+  .checklist-reference,
+  .checklist-suggestion { font-size: 13.5px; }
+  /* Comfortably tappable without moving the label off the first line. */
+  .checklist-check { width: 18px; height: 18px; margin-top: 1px; }
+  .checklist-detail { padding-left: 28px; }
+}
