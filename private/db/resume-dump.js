@@ -3,7 +3,16 @@ import { sql } from "./db.js"
 /**
  * Returns the latest unfinalized diff + its parent dump for a user.
  * Used by the polling endpoint to check whether the background AI job has finished.
- * Returns null if no unfinalized diff exists yet.
+ * Returns null if the job hasn't written its results yet.
+ *
+ * `dump_state = 'READY'` is load-bearing, not decoration. A diff row is not
+ * proof that *this* ingestion finished: diffs outlive the dump they describe,
+ * and any review the user abandoned rather than finalized leaves one behind.
+ * A rebuild empties the dump's columns while those old diffs sit untouched, so
+ * without this clause the first poll after a resubmit joins the *emptied* dump
+ * to a *stale* diff and reports ready — handing the UI a blank profile and
+ * last time's revisions, seconds after submitting and long before the model
+ * has answered. Only a completed ingestion puts the row back in READY.
  *
  * @param {string} user_id
  */
@@ -32,6 +41,7 @@ export const getResumeDumpResult = async (user_id) => {
         JOIN resume_dump_diffs diff ON diff.resume_dump_id = d.id
         WHERE d.user_id = ${user_id}
           AND diff.finalized = FALSE
+          AND d.dump_state = 'READY'
         ORDER BY diff.created_at DESC
         LIMIT 1
     `
