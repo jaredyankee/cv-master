@@ -37,6 +37,9 @@ export const shapeDump = (input) => {
         gaps:         row.gaps        ?? [],
         workingStyle: row.working_style,
         lookingFor:   row.looking_for,
+        // Part of the profile, so a rebuild caches and recovers them with the
+        // rest rather than stranding them on a profile that no longer exists.
+        answers:      row.answers ?? [],
     }
 }
 
@@ -260,6 +263,16 @@ export const normalizeDump = (dump) => {
         gaps:         strList(d.gaps),
         workingStyle: text(d.workingStyle),
         lookingFor:   text(d.lookingFor),
+        // The review's probe questions and what the user said back. `placed`
+        // marks an answer already merged into a section, so the dashboard
+        // doesn't show it a second time as a loose note.
+        answers: objList(d.answers, a => ({
+            question:  text(a.question),
+            reference: text(a.reference),
+            answer:    text(a.answer),
+            section:   str(a.section),
+            placed:    Boolean(a.placed),
+        }), a => a.question && a.answer),
     }
 }
 

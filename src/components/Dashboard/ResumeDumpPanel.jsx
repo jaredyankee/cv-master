@@ -116,6 +116,33 @@ function SchoolView({ entries }) {
     })
 }
 
+/**
+ * Answers that belong to no section. A placed answer is already visible inside
+ * the entry it extended, so showing it here again would double-count it.
+ *
+ * These are context in the same sense as an entry marked excludeFromResume:
+ * the model reads them when judging fit, and they never reach a built resume.
+ * The styling says so rather than leaving the user to guess.
+ */
+function ContextAnswers({ answers = [] }) {
+    const loose = answers.filter(a => !a.placed && has(a.answer))
+    if (loose.length === 0) return null
+
+    return (
+        <>
+            {loose.map((qa, i) => (
+                <div className="entry is-context-only" key={i}>
+                    <div className="entry-sub">
+                        {qa.question}
+                        <ContextTag />
+                    </div>
+                    <p className="entry-body">{qa.answer}</p>
+                </div>
+            ))}
+        </>
+    )
+}
+
 function DumpSection({ label, children }) {
     return (
         <section className="dump-section">
@@ -390,15 +417,10 @@ export default function ResumeDumpPanel({
                 )}
             />
 
-            {answeredQuestions.length > 0 && (
+            {answeredQuestions.some(a => !a.placed && has(a.answer)) && (
                 <section className="dump-section">
-                    <p className="section-label">Your answers</p>
-                    {answeredQuestions.map((qa, i) => (
-                        <div key={i} className="entry">
-                            <div className="entry-sub">{qa.question}</div>
-                            <p className="entry-body">{qa.answer}</p>
-                        </div>
-                    ))}
+                    <p className="section-label">Answers kept as context</p>
+                    <ContextAnswers answers={answeredQuestions} />
                 </section>
             )}
         </div>
@@ -442,14 +464,9 @@ export function ReadOnlyDump({ dump, answeredQuestions = [] }) {
             {has(gaps) && <DumpSection label="Gaps"><ul className="bullets">{gaps.map((g, i) => <li key={i}>{g}</li>)}</ul></DumpSection>}
             {has(workingStyle) && <DumpSection label="Working style"><p className="dump-text">{workingStyle}</p></DumpSection>}
             {has(lookingFor) && <DumpSection label="Looking for"><p className="dump-text">{lookingFor}</p></DumpSection>}
-            {answeredQuestions.length > 0 && (
-                <DumpSection label="Your answers">
-                    {answeredQuestions.map((qa, i) => (
-                        <div key={i} className="entry">
-                            <div className="entry-sub">{qa.question}</div>
-                            <p className="entry-body">{qa.answer}</p>
-                        </div>
-                    ))}
+            {answeredQuestions.some(a => !a.placed && has(a.answer)) && (
+                <DumpSection label="Answers kept as context">
+                    <ContextAnswers answers={answeredQuestions} />
                 </DumpSection>
             )}
         </>

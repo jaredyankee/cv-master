@@ -27,7 +27,6 @@ function Workspace({ user, onSignOut }) {
     const [view, setView]                             = useState('loading') // 'loading' | 'onboarding' | 'review' | 'dashboard'
     const [onboardingResponse, setOnboardingResponse] = useState(null)
     const [resumeDump, setResumeDump]                 = useState(null)  // finalized dump
-    const [answeredQuestions, setAnsweredQuestions]   = useState([])
     const [applications, setApplications]             = useState([])    // newest first
     const [isLoading, setIsLoading]                   = useState(false)
 
@@ -208,7 +207,6 @@ function Workspace({ user, onSignOut }) {
 
             // The review payload described the profile that was just cached.
             setOnboardingResponse(null)
-            setAnsweredQuestions([])
             setReviseFeedback(feedback)
             setAddressed(new Set())
             setView('onboarding')
@@ -284,15 +282,17 @@ function Workspace({ user, onSignOut }) {
 
     // handle reviewed dump
     async function handleReviewComplete(finalDump, answered = []) {
+        // Answers ride on the dump rather than beside it, so they are saved,
+        // cached and recovered with the profile they belong to. They used to
+        // live in React state and vanish on the next reload.
         const answers = answered.filter(q => q.answer?.trim())
-        setAnsweredQuestions(answers)
         try {
-            await handleSaveDump(finalDump, { finalized: true })
+            await handleSaveDump({ ...finalDump, answers }, { finalized: true })
         } catch (err) {
             // The dashboard is still usable with what's in memory; the dump
             // just isn't persisted yet and the review will reappear on reload.
             console.error("Could not persist the finalized dump", err)
-            setResumeDump(finalDump)
+            setResumeDump({ ...finalDump, answers })
         }
         setView('dashboard')
     }
@@ -391,7 +391,7 @@ function Workspace({ user, onSignOut }) {
         return (
             <Dashboard
                 resumeDump={resumeDump}
-                answeredQuestions={answeredQuestions}
+                answeredQuestions={resumeDump?.answers ?? []}
                 applications={applications}
                 onCreateApplication={handleCreateApplication}
                 onEditProfile={() => setView(onboardingResponse ? 'review' : 'onboarding')}

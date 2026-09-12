@@ -34,6 +34,7 @@ export const getResumeDumpResult = async (user_id) => {
             d.gaps,
             d.working_style,
             d.looking_for,
+            d.answers,
             diff.id        AS diff_id,
             diff.revisions,
             diff.questions
@@ -75,6 +76,7 @@ export const getResumeDumpByUser = async (user_id) => {
             d.gaps,
             d.working_style,
             d.looking_for,
+            d.answers,
             d.onboarding_finalized,
             d.dump_state,
             d.source_text,
@@ -222,6 +224,7 @@ export const updateResumeDump = async (user_id, resume_dump, { finalized, dumpSt
         gaps,
         workingStyle,
         lookingFor,
+        answers,
     } = resume_dump
 
     const [row] = await sql`
@@ -241,6 +244,7 @@ export const updateResumeDump = async (user_id, resume_dump, { finalized, dumpSt
             gaps                 = ${gaps             ?? []},
             working_style        = ${workingStyle     ?? null},
             looking_for          = ${lookingFor       ?? null},
+            answers              = ${JSON.stringify(answers ?? [])}::jsonb,
             onboarding_finalized = COALESCE(${finalized ?? null}, onboarding_finalized),
             dump_state           = COALESCE(${dumpState ?? null}::dump_state, dump_state),
             cached_dump          = CASE WHEN ${clearCache} THEN NULL ELSE cached_dump END,
@@ -290,6 +294,7 @@ export const cacheAndResetResumeDump = async (user_id, dump_state, cached_dump) 
             gaps                 = ${[]},
             working_style        = NULL,
             looking_for          = NULL,
+            answers              = '[]'::jsonb,
             onboarding_finalized = FALSE
         WHERE user_id = ${user_id}
         RETURNING *

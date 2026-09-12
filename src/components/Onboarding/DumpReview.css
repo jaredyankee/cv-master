@@ -208,3 +208,57 @@
   }
   .review-redo { justify-content: center; }
 }
+
+/* ── Where an answer goes ────────────────────────────────────── */
+
+/* Stated before the box, not after: the point is knowing where your answer is
+   headed while you decide what to write. */
+.question-destination {
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sunken);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.question-destination strong {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.question-card.is-placed { border-color: var(--success); }
+
+.placement {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.placement .section-label { margin-bottom: 9px; }
+
+.placement-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 11px;
+}
+
+.placement-note {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.placement-done { margin-top: 12px; }
+
+@media (max-width: 560px) {
+  .placement-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .placement-actions .btn { width: 100%; }
+}

@@ -250,6 +250,28 @@ export const RESUME_DUMP_TOOL = {
                     properties: {
                         question:  { type: 'string' },
                         reference: { type: 'string', description: 'Verbatim input text being referenced, if applicable.' },
+                        target: {
+                            type: 'object',
+                            description:
+                                'Where the answer belongs in the dump, when it clearly belongs somewhere. ' +
+                                'Omit entirely when the answer would not extend any one section — the answer ' +
+                                'is still kept as context. Never guess a target to avoid omitting one.',
+                            properties: {
+                                section: {
+                                    type: 'string',
+                                    enum: ['experience', 'freelance', 'projects', 'education',
+                                           'positioning', 'portfolio', 'workingStyle', 'lookingFor'],
+                                },
+                                entry: {
+                                    type: 'string',
+                                    description:
+                                        'For the list sections (experience, freelance, projects, education): the ' +
+                                        'company, project name or school of the entry this is about, copied exactly ' +
+                                        'as it appears in resume_dump. Omit for the single-value sections.',
+                                },
+                            },
+                            required: ['section'],
+                        },
                     },
                     required: ['question'],
                 },
