@@ -58,7 +58,8 @@ npx netlify dev           # serves the Vite app and the functions together
 | `DATABASE_URL` | functions | Neon connection string |
 | `ENCRYPTION_KEY` | functions | 64-char hex key for encrypting stored API keys. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `SEYONA_KEY` | functions | Shared secret used by the CORS layer |
-| `ANTHROPIC_API_KEY` | functions, optional | Fallback when no key is sent from the form. Useful for a single-user deployment |
+| `ANTHROPIC_API_KEY` | functions, optional | Fallback when no key is sent from the form and none is stored. Anthropic only; useful for a single-user deployment |
+| `ANTHROPIC_MODEL_REASONING` / `ANTHROPIC_MODEL_EXTRACTION` | functions, optional | Override the default models. Same pattern for `OPENAI_*` and `GEMINI_*` |
 | `NEON_AUTH_BASE_URL` | functions | Neon Auth base URL, from Neon console → Auth → Configuration. Used as the JWT issuer |
 | `NEON_AUTH_JWKS_URL` | functions, optional | Defaults to `<NEON_AUTH_BASE_URL>/.well-known/jwks.json` |
 | `ALLOWED_EMAILS` | functions, optional | Limits who may use the deployment. Unset means anyone who can sign in. See [Limiting access](#limiting-access) |

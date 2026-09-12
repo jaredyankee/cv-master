@@ -2,6 +2,7 @@ import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
 import { getApiKey } from "../../private/db/users.js";
+import { normalizeProvider } from "../../private/lib/providers/index.js";
 import { bodyTooLarge } from "../../private/lib/limits.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,19 +63,23 @@ export async function handler(event) {
         return { statusCode: 400, body: JSON.stringify({ message: "jobDescription is required" }) };
     }
 
-    // BYOK: header first, then the key stored (encrypted) at onboarding, then env.
+    // BYOK. Header first, then the key stored for the provider the user
+    // asked for — never another provider's key against this one's endpoint.
+    const requested = normalizeProvider(body.provider ?? event.headers["x-api-provider"]);
+    let provider = requested;
     let apiKey = (event.headers["x-api-key"] ?? "").trim();
     if (!apiKey) {
         try {
-            apiKey = (await getApiKey(user.userId)) ?? "";
+            const stored = await getApiKey(user.userId, requested);
+            if (stored.apiKey) { apiKey = stored.apiKey; provider = stored.provider; }
         } catch (err) {
             console.error("job-application-background: could not read stored API key:", err.message);
         }
     }
-    if (!apiKey) apiKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
+    if (!apiKey && provider === "anthropic") apiKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
     if (!apiKey) {
-        console.error("job-application-background: no Anthropic key available for this user");
-        return { statusCode: 400, body: JSON.stringify({ message: "No API key on file" }) };
+        console.error(`job-application-background: no ${provider} key available for this user`);
+        return { statusCode: 400, body: JSON.stringify({ message: `No ${provider} API key on file` }) };
     }
 
     const fn = fnRegistry("job-application:POST");
@@ -85,7 +90,7 @@ export async function handler(event) {
             jobDescription: body.jobDescription,
             notes:          body.notes ?? "",
             questions:      Array.isArray(body.questions) ? body.questions : [],
-        });
+        }, provider);
         if (!result?.ok) console.error("job-application-background failed:", result?.error);
     } catch (err) {
         console.error("Background job-application error:", err);

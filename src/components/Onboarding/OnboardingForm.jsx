@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Progress from '../common/Progress'
 import ReviseChecklist from './ReviseChecklist'
+import { PROVIDERS, DEFAULT_PROVIDER, providerInfo } from '../../lib/providers'
 import { INGEST_PHRASES } from '../common/phrases'
 import './OnboardingForm.css'
 
@@ -31,12 +32,13 @@ const COPY = {
  * framing, and in REVISE mode the box opens on what the user wrote last time.
  *
  * Props:
- *   onSubmit(dumpText: string, apiKey: string) — apiKey is '' when one is
- *              already stored, which tells the server to use that one
+ *   onSubmit(dumpText, apiKey, provider) — apiKey is '' when one is already
+ *              stored for that provider, which tells the server to use it
  *   isLoading:   boolean
  *   mode:        'FIRST' | 'NEW' | 'REVISE'
  *   initialText: string — prefill, for REVISE
- *   hasApiKey:   boolean — a key is on file, so the field is optional
+ *   provider:    the user's stored provider choice
+ *   configuredProviders: string[] — providers this user already has a key for
  *   error:       string | null
  *   onBack():    optional; shown when there is a dashboard to go back to
  *   feedback:    { revisions, questions } — the review's points, shown beside
@@ -50,7 +52,8 @@ export default function OnboardingForm({
   isLoading,
   mode = 'FIRST',
   initialText = '',
-  hasApiKey = false,
+  provider: initialProvider = DEFAULT_PROVIDER,
+  configuredProviders = [],
   error = null,
   onBack,
   feedback = null,
@@ -59,19 +62,23 @@ export default function OnboardingForm({
 }) {
   const [dumpText, setDumpText] = useState(initialText)
   const [apiKey, setApiKey]     = useState('')
+  const [provider, setProvider] = useState(initialProvider || DEFAULT_PROVIDER)
   const [showKey, setShowKey]   = useState(false)
   const [startedAt, setStartedAt] = useState(null)
 
   const copy = COPY[mode] ?? COPY.FIRST
-  // With a key on file the field is an override, not a requirement.
-  const keyReady = hasApiKey || apiKey.trim().length > 0
+  const info = providerInfo(provider)
+  // Per provider: a key on file for *this* one makes the field an override.
+  // Switching to a provider you have never used asks for its key.
+  const hasStoredKey = configuredProviders.includes(provider)
+  const keyReady = hasStoredKey || apiKey.trim().length > 0
   const canSubmit = dumpText.trim().length > 0 && keyReady && !isLoading
 
   function handleSubmit(e) {
     e.preventDefault()
     if (!canSubmit) return
     setStartedAt(Date.now())
-    onSubmit(dumpText, apiKey.trim())
+    onSubmit(dumpText, apiKey.trim(), provider)
   }
 
   // Only REVISE gets the checklist. Starting over discards the text those
@@ -133,9 +140,36 @@ export default function OnboardingForm({
           </div>
 
           <div className="field">
+            <label htmlFor="provider" className="field-label">
+              Model provider
+            </label>
+            <div className="provider-row" role="radiogroup" aria-label="Model provider">
+              {PROVIDERS.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={provider === p.id}
+                  className={`provider-option${provider === p.id ? ' is-active' : ''}`}
+                  onClick={() => setProvider(p.id)}
+                >
+                  {p.label}
+                  {configuredProviders.includes(p.id) && (
+                    <span className="provider-saved" title="You have a key on file for this provider">key saved</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <span className="field-hint small">
+              Your key goes to the provider you pick and nowhere else. Switching
+              providers keeps any key you have already given for the others.
+            </span>
+          </div>
+
+          <div className="field">
             <label htmlFor="apiKey" className="field-label">
-              Anthropic API key
-              {hasApiKey && <span className="field-optional">Optional</span>}
+              {info.label} API key
+              {hasStoredKey && <span className="field-optional">Optional</span>}
             </label>
             <div className="api-key-row">
               <input
@@ -144,7 +178,7 @@ export default function OnboardingForm({
                 className="api-key-input"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
-                placeholder={hasApiKey ? 'Using your saved key' : 'sk-ant-...'}
+                placeholder={hasStoredKey ? `Using your saved ${info.label} key` : info.placeholder}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -158,9 +192,10 @@ export default function OnboardingForm({
               </button>
             </div>
             <span className="field-hint small">
-              {hasApiKey
-                ? 'Your saved key is used unless you enter a different one. Stored encrypted, never logged.'
-                : 'Stored encrypted. Never logged.'}
+              {hasStoredKey
+                ? `Your saved ${info.label} key is used unless you enter a different one. Stored encrypted, never logged.`
+                : <>Stored encrypted. Never logged. Get one from{' '}
+                    <a href={info.keysUrl} target="_blank" rel="noreferrer">{info.keysLabel}</a>.</>}
             </span>
           </div>
 
