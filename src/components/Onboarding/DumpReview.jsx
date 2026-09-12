@@ -1,6 +1,7 @@
 // DumpReview.jsx
 import { useState } from 'react'
 import CopyButton from '../common/CopyButton'
+import { resolveTarget, composeAnswer, applyPlacement } from '../../lib/answerPlacement'
 import { buildRevisionPrompt, isLongEnough, requiredLength } from '../../lib/revisionPrompt'
 import './DumpReview.css'
 
@@ -50,6 +51,11 @@ export default function DumpReview ({ response, onComplete, onBack, onRegenerate
     const [currentDump, setCurrentDump] = useState(resume_dump)
     // user's answers to each question
     const [answers, setAnswers] = useState(() => questions.map(() => ''))
+    // The composed text for a question whose answer has a home: existing field
+    // + the answer, editable before it is accepted. Null until they type.
+    const [placements, setPlacements] = useState(() => questions.map(() => null))
+    // indices of questions whose answer has been placed into the dump
+    const [placed, setPlaced] = useState(new Set())
 
     function handleEdit(i, value) {
         setEditedTexts(prev => {
@@ -74,6 +80,33 @@ export default function DumpReview ({ response, onComplete, onBack, onRegenerate
             next[i] = value
             return next
         })
+        // Re-compose the preview as they type, but only while they haven't
+        // touched it — once they edit the composed text it is theirs to own.
+        setPlacements(prev => {
+            if (placed.has(i)) return prev
+            const target = resolveTarget(currentDump, questions[i].target)
+            if (!target) return prev
+            const next = [...prev]
+            next[i] = composeAnswer(target.current, value)
+            return next
+        })
+    }
+
+    function handleEditPlacement(i, value) {
+        setPlacements(prev => {
+            const next = [...prev]
+            next[i] = value
+            return next
+        })
+    }
+
+    /** Writes the composed text into the section the question pointed at. */
+    function handlePlace(i) {
+        const target = resolveTarget(currentDump, questions[i].target)
+        const textToWrite = (placements[i] ?? '').trim()
+        if (!target || !textToWrite) return
+        setCurrentDump(prev => applyPlacement(prev, resolveTarget(prev, questions[i].target), textToWrite))
+        setPlaced(prev => new Set([...prev, i]))
     }
 
     function handleFinalize() {
@@ -81,6 +114,10 @@ export default function DumpReview ({ response, onComplete, onBack, onRegenerate
             question:  q.question,
             reference: q.reference ?? null,
             answer:    answers[i],
+            // Where it went, for the record — and so the dashboard knows not to
+            // show a placed answer again as a loose note.
+            section:   resolveTarget(currentDump, q.target)?.label ?? '',
+            placed:    placed.has(i),
         }))
         onComplete(currentDump, answeredQuestions)
     }
@@ -185,23 +222,17 @@ export default function DumpReview ({ response, onComplete, onBack, onRegenerate
                     <p className="section-label">Questions ({questions.length})</p>
 
                     {questions.map((q, i) => (
-                        <div key={i} className="question-card">
-                            <div className="question-text">{q.question}</div>
-
-                            {q.reference && (
-                                <div className="question-reference">{q.reference}</div>
-                            )}
-
-                            <div className="question-body">
-                            <textarea
-                                className="question-textarea"
-                                value={answers[i]}
-                                onChange={e => handleAnswer(i, e.target.value)}
-                                placeholder="Your answer… (optional)"
-                                rows={3}
-                            />
-                            </div>
-                        </div>
+                        <QuestionCard
+                            key={i}
+                            question={q}
+                            answer={answers[i]}
+                            onAnswer={v => handleAnswer(i, v)}
+                            target={resolveTarget(currentDump, q.target)}
+                            placement={placements[i]}
+                            onEditPlacement={v => handleEditPlacement(i, v)}
+                            onPlace={() => handlePlace(i)}
+                            isPlaced={placed.has(i)}
+                        />
                     ))}
                 </section>
             )}
@@ -237,6 +268,78 @@ export default function DumpReview ({ response, onComplete, onBack, onRegenerate
                 </button>
             </div>
 
+        </div>
+    )
+}
+/**
+ * One probe question, and what becomes of the answer.
+ *
+ * The point of the card is that answering is not a shout into the void: the
+ * question states where its answer is headed before you type, and once you
+ * type you see the section as it would read, editable, with an Accept that
+ * puts it there. An answer with nowhere to go says so instead of pretending.
+ */
+function QuestionCard({
+    question, answer, onAnswer,
+    target, placement, onEditPlacement, onPlace, isPlaced,
+}) {
+    return (
+        <div className={`question-card${isPlaced ? ' is-placed' : ''}`}>
+            <div className="question-text">{question.question}</div>
+
+            {question.reference && (
+                <div className="question-reference">{question.reference}</div>
+            )}
+
+            <div className="question-destination">
+                {target
+                    ? <>Your answer extends <strong>{target.label}</strong></>
+                    : <>Kept as context for job fit — this one doesn&rsquo;t belong to a section</>}
+            </div>
+
+            <div className="question-body">
+                {/* Placed, the card is done: the text is in the section now, and
+                    leaving the raw answer on screen above the badge reads as if
+                    that were what landed — it isn't, they edited it first. Same
+                    collapse an accepted revision does. */}
+                {isPlaced ? (
+                    <span className="accepted-badge">✓ Added to {target?.label}</span>
+                ) : (
+                    <textarea
+                        className="question-textarea"
+                        value={answer}
+                        onChange={e => onAnswer(e.target.value)}
+                        placeholder="Your answer… (optional)"
+                        rows={3}
+                    />
+                )}
+
+                {!isPlaced && target && answer.trim() && (
+                    <div className="placement">
+                        <p className="section-label">{target.label} will read</p>
+                        <textarea
+                            className="revision-textarea"
+                            value={placement ?? ''}
+                            onChange={e => onEditPlacement(e.target.value)}
+                            aria-label={`${target.label} after your answer`}
+                            rows={4}
+                        />
+                        <div className="placement-actions">
+                            <span className="placement-note">
+                                Every word here is yours — edit it before adding.
+                            </span>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={onPlace}
+                                disabled={!(placement ?? '').trim()}
+                            >
+                                Add to {target.label.split(' · ')[0]}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

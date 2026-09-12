@@ -80,12 +80,37 @@ resume_dump: {
   questions: [{
     question:  string
     reference: string?       // the dump text being asked about, if any
+    target:    { section, entry? }?   // where the answer belongs — see below
   }]
 }
 ```
 
 Revisions render like Word comments: original (highlighted) → note → editable
-suggestion with an Accept button. Questions render with a free-text answer box.
+suggestion with an Accept button.
+
+### Where an answer goes
+
+A question carries a `target` when its answer would extend one part of the
+dump: `{ section, entry? }`, where `entry` is the company, project name or
+school copied exactly as it appears in `resume_dump`. The review states the
+destination *before* the user types, which is the point — answering used to be
+a shout into the void.
+
+Placement involves no model call. `src/lib/answerPlacement.js` resolves the
+target, concatenates the existing field with the answer, and shows the result
+as editable text the user accepts. Every word that lands in the dump is a word
+the user typed, so there is nothing here that *could* embellish — the strictest
+possible reading of rule 1.
+
+A target that can't be trusted — unknown section, or an `entry` not in the dump
+— degrades to no target rather than guessing. Sending someone's words into the
+wrong role is worse than not placing them.
+
+Answers live on the dump as `answers: [{ question, reference, answer, section,
+placed }]`, so they are saved, cached and recovered with the profile they
+describe. `placed: false` means the answer found no section: it is context in
+the same sense as `excludeFromResume` — the model reads it when judging fit, it
+never reaches a built resume — and the dashboard renders it that way.
 
 ### Job application response
 
@@ -244,7 +269,6 @@ so Cancel is a true discard and a failed save keeps the user's work on screen.
 
 - The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
   come back in one call; the guard needs a fit-only first pass)
-- Storing the review's answered questions, and the revise checklist's ticks
-  (both persist only in React state — a reload loses them)
+- The revise checklist's ticks persist only in React state — a reload loses them
 - More than one cached dump. `cached_dump` is a single slot; a second rebuild
   overwrites it (unless the outgoing dump is unreviewed — see above).
