@@ -98,8 +98,18 @@ export async function handler(event) {
     const body = JSON.parse(event.body);
     const fn = fnRegistry("registry-dump:POST");
 
+    // The 202 already went out, so this log is the only record of how the job
+    // went. createResumeDump reports failure by returning { ok: false } rather
+    // than throwing, and dropping that on the floor is why a failed ingestion
+    // used to look identical to a successful one in the logs.
     try {
-        await fn(apiKey, { user_id: user.userId, resume_dump: body.resume_dump });
+        const result = await fn(apiKey, { user_id: user.userId, resume_dump: body.resume_dump });
+        if (result?.ok) {
+            console.log(`resume-dump ingestion finished for sub=${user.userId}`);
+        } else {
+            const reason = result?.error?.message ?? result?.error ?? "no result returned";
+            console.error(`resume-dump ingestion FAILED for sub=${user.userId}: ${typeof reason === "string" ? reason : JSON.stringify(reason)}`);
+        }
     } catch (err) {
         console.error("Background resume-dump error:", err);
     }

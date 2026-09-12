@@ -132,6 +132,12 @@ export const startDumpRegeneration = async (userId, mode) => {
         return { ok: false, error: "A regeneration is already in progress" }
     }
 
+    // Close out any review the user walked away from instead of finalizing.
+    // The rebuild replaces the profile that review was about, so it is no
+    // longer pending on anything — and left open it would sit in the table as
+    // a candidate "latest unfinalized diff" forever.
+    await finalizeResumeDumpDiff(userId)
+
     const updated = await cacheAndResetResumeDump(userId, mode, cacheSnapshotFor(row))
     if (!updated) return { ok: false, error: "No resume dump on file for this user" }
 
