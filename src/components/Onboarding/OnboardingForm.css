@@ -177,3 +177,52 @@
   .onboarding.has-aside > .onboarding-waiting { order: 1; }
   .onboarding.has-aside > .checklist { margin-bottom: 34px; }
 }
+
+/* ── Provider picker ─────────────────────────────────────────── */
+
+/* A segmented row rather than a <select>: three options that each change what
+   the field below asks for, so seeing all three at once beats a dropdown. */
+.provider-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.provider-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 15px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+
+.provider-option:hover { border-color: var(--text-h); }
+
+.provider-option.is-active {
+  background: var(--text-h);
+  border-color: var(--text-h);
+  color: var(--bg);
+}
+
+/* Says a key is already on file, so the field below is an override. */
+.provider-saved {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+@media (max-width: 700px) {
+  .provider-row { gap: 6px; }
+  .provider-option { flex: 1; justify-content: center; padding: 11px 10px; }
+}
