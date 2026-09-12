@@ -42,6 +42,24 @@ function Workspace({ user, onSignOut }) {
     const [hasApiKey, setHasApiKey]     = useState(false)
     const [dumpError, setDumpError]     = useState(null)
 
+    // The review's points, carried into a REVISE so they sit beside the box
+    // the user is rewriting. Deliberately not `onboardingResponse`: that one
+    // decides whether "Edit profile" opens the review screen, and during a
+    // rebuild there is no profile for it to review.
+    const [reviseFeedback, setReviseFeedback] = useState(null)
+    // Which of those points the user has ticked off, as "revision:0" keys.
+    // Held here so stepping out to the dashboard and back doesn't reset them.
+    const [addressed, setAddressed] = useState(() => new Set())
+
+    const isDone = (kind, index) => addressed.has(`${kind}:${index}`)
+    const toggleDone = (kind, index) => setAddressed(prev => {
+        const next = new Set(prev)
+        const key = `${kind}:${index}`
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        return next
+    })
+
     // On mount: load the dump (skip onboarding if it exists) and the user's
     // applications. The user is identified by the bearer token appRequest attaches.
     useEffect(() => {
@@ -82,6 +100,9 @@ function Workspace({ user, onSignOut }) {
                 setResumeDump(resume_dump)
                 // keep the review payload so "Edit profile" can reopen it
                 setOnboardingResponse({ resume_dump, revisions, questions })
+                // Reloading mid-revise should land back on the same worklist.
+                // The diff survives a rebuild, so the points are still here.
+                if (dump_state === 'REVISE') setReviseFeedback({ revisions, questions })
 
                 try {
                     const appsRes = await appRequest("/job-application", "GET")
@@ -133,6 +154,9 @@ function Workspace({ user, onSignOut }) {
                 setDumpState('READY');
                 setSourceText(dumpText);
                 setHasApiKey(true);
+                // The worklist belonged to the text that was just replaced.
+                setReviseFeedback(null);
+                setAddressed(new Set());
                 setView('review');
                 return;
             }
@@ -172,10 +196,21 @@ function Workspace({ user, onSignOut }) {
     async function handleRegenerate(mode) {
         setDumpError(null)
         try {
+            // Capture the review's points before clearing the payload: a
+            // revise is a rewrite driven by exactly those points, so they go
+            // to the form as a worklist. Starting over discards the text they
+            // were raised about, so they'd be advice about nothing.
+            const feedback = mode === 'REVISE' && onboardingResponse
+                ? { revisions: onboardingResponse.revisions ?? [], questions: onboardingResponse.questions ?? [] }
+                : null
+
             await dumpAction({ action: 'regenerate', mode })
+
             // The review payload described the profile that was just cached.
             setOnboardingResponse(null)
             setAnsweredQuestions([])
+            setReviseFeedback(feedback)
+            setAddressed(new Set())
             setView('onboarding')
         } catch (err) {
             console.error("Could not start the regeneration", err)
@@ -191,6 +226,9 @@ function Workspace({ user, onSignOut }) {
             if (data?.resume_dump) {
                 setOnboardingResponse({ resume_dump: data.resume_dump, revisions: [], questions: [] })
             }
+            // Recovering abandons the rebuild, and with it its worklist.
+            setReviseFeedback(null)
+            setAddressed(new Set())
             setView('dashboard')
         } catch (err) {
             console.error("Could not recover the cached profile", err)
@@ -382,6 +420,9 @@ function Workspace({ user, onSignOut }) {
             hasApiKey={hasApiKey}
             error={dumpError}
             onBack={hasDump ? () => setView('dashboard') : null}
+            feedback={reviseFeedback}
+            isDone={isDone}
+            onToggleDone={toggleDone}
         />
     )
 }

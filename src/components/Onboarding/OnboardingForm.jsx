@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Progress from '../common/Progress'
+import ReviseChecklist from './ReviseChecklist'
 import { INGEST_PHRASES } from '../common/phrases'
 import './OnboardingForm.css'
 
@@ -38,6 +39,11 @@ const COPY = {
  *   hasApiKey:   boolean — a key is on file, so the field is optional
  *   error:       string | null
  *   onBack():    optional; shown when there is a dashboard to go back to
+ *   feedback:    { revisions, questions } — the review's points, shown beside
+ *                the box in REVISE mode. They are what the rewrite is *for*,
+ *                so they belong here rather than on a screen left behind.
+ *   isDone(kind, index) / onToggleDone(kind, index) — the checklist's ticks,
+ *                held by the caller so they survive a trip to the dashboard
  */
 export default function OnboardingForm({
   onSubmit,
@@ -47,6 +53,9 @@ export default function OnboardingForm({
   hasApiKey = false,
   error = null,
   onBack,
+  feedback = null,
+  isDone,
+  onToggleDone,
 }) {
   const [dumpText, setDumpText] = useState(initialText)
   const [apiKey, setApiKey]     = useState('')
@@ -65,8 +74,15 @@ export default function OnboardingForm({
     onSubmit(dumpText, apiKey.trim())
   }
 
+  // Only REVISE gets the checklist. Starting over discards the text those
+  // points were raised about, so carrying them over would be advice about
+  // something that no longer exists.
+  const showChecklist =
+    mode === 'REVISE' && !isLoading &&
+    ((feedback?.revisions?.length ?? 0) + (feedback?.questions?.length ?? 0)) > 0
+
   return (
-    <div className="onboarding">
+    <div className={`onboarding${showChecklist ? ' has-aside' : ''}`}>
       <header className="onboarding-header">
         {onBack && !isLoading && (
           <button type="button" className="back-btn" onClick={onBack}>
@@ -155,6 +171,14 @@ export default function OnboardingForm({
           </div>
 
         </form>
+      )}
+
+      {showChecklist && (
+        <ReviseChecklist
+          feedback={feedback}
+          isDone={isDone}
+          onToggle={onToggleDone}
+        />
       )}
     </div>
   )
