@@ -9,7 +9,7 @@ import { applicationLabel, formatDate, analysisState } from './applicationUtils'
  *   applications: Application[]
  *   onNew()
  *   onSelect(id)
- *   disabledReason: string | null — why a new application can't be started
+ *   disabledReason: string | null — why a Job Application can't be started
  *                   right now. Existing ones stay open and readable.
  */
 export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null }) {
@@ -29,7 +29,7 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                     disabled={blocked}
                     title={disabledReason ?? undefined}
                 >
-                    New application
+                    Job Application
                 </button>
             </header>
 
