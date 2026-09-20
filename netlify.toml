@@ -6,6 +6,22 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Netlify's default function bundler contradicts itself on any dependency with
+# a conditional `exports` map. It traces our `import` with nft and copies the
+# file the `import` condition names, then transpiles our ESM source to
+# CommonJS — and the transpiled handler calls `require`, which resolves the
+# `require` condition to a different file that was never copied:
+#
+#   Cannot find module '/var/task/node_modules/@google/genai/dist/node/index.cjs'
+#
+# @google/genai is fine; both files are in the package. It is the two halves of
+# the bundler disagreeing. esbuild inlines the dependency instead of resolving
+# it at runtime, so there is no condition left to disagree about — and no
+# node_modules in the zip to be incomplete. It also halves the function, ~1 MB
+# zipped against ~2.2 MB.
+[functions]
+  node_bundler = "esbuild"
+
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
