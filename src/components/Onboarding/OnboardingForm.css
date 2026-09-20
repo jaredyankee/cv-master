@@ -202,6 +202,8 @@
     padding: 9px 0;
     line-height: 1.5;
   }
+}
+
 /* ── Provider picker ─────────────────────────────────────────── */
 
 /* A segmented row rather than a <select>: three options that each change what
