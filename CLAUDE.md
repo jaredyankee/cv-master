@@ -22,9 +22,9 @@ into a structured profile, then builds per-job resumes from pieces of that profi
    color of our logo"), surface it explicitly in the cover-letter section.
 5. **Guard token spend.** For fit levels `Mismatch` and `Out of Reach`, the UI asks
    "are you sure?" before generating a resume.
-6. **BYOK.** Users supply their own Anthropic key. It is stored encrypted
-   (`private/lib/crypto.js`) and must never be logged. Don't log full model
-   responses either; they contain the user's profile.
+6. **BYOK.** Users supply their own key, for whichever provider they pick. Keys
+   are stored encrypted (`private/lib/crypto.js`) and must never be logged.
+   Don't log full model responses either; they contain the user's profile.
 
 ## Architecture conventions
 
@@ -39,9 +39,10 @@ into a structured profile, then builds per-job resumes from pieces of that profi
   function until the result is in the database. Don't put AI calls in synchronous
   functions (10 s limit). Polling backs off (`src/lib/poll.js`) rather than
   running at a flat interval — every poll is an invocation and a Neon query.
-- Structured output comes from a **forced tool call** (`tool_choice: { type: "tool" }`)
-  whose `input_schema` is the source of truth. Keep `private/registry/schema.js` and
-  the JSDoc typedefs in `src/schemas/` in sync when changing shapes.
+- Structured output goes through `private/lib/providers/`. The tool
+  `input_schema` in `private/registry/schema.js` is the source of truth for
+  every provider; each adapter translates it. Keep that file and the JSDoc
+  typedefs in `src/schemas/` in sync when changing shapes.
 - Response objects from `private/objects/` use `{ ok: boolean, ... }`.
 - Front end is React + Vite with plain CSS and CSS variables (`src/index.css`).
   Component styles live next to the component. Light and dark themes must both work.
@@ -229,6 +230,48 @@ allowed to *use* a deployment are separate questions.
 Neither guard stops an unauthenticated request from costing one invocation;
 only something in front of the functions can. That is a platform setting, not
 a code change.
+
+## Providers
+
+Three: `anthropic`, `openai`, `gemini`. One `structured()` call in
+`private/lib/providers/index.js`, one adapter file each. The call sites don't
+know which provider they're on; adding a fourth is one file plus an entry in
+`ADAPTERS`.
+
+Each provider does structured output differently — Anthropic a forced tool
+call, OpenAI strict `json_schema`, Gemini `responseJsonSchema` — so the
+schemas are translated in `schema-adapt.js`:
+
+- **OpenAI strict mode** requires `additionalProperties: false` and *every*
+  property in `required`. `toStrictSchema` does that and makes originally
+  optional fields nullable, so "required by strict mode" doesn't become "the
+  model must invent a value".
+- **Gemini** takes real JSON Schema but only part of it. `toGeminiSchema`
+  drops anything outside the supported list rather than sending it and
+  collecting an opaque 400.
+
+Our schemas only use `type`, `properties`, `required`, `description`, `items`
+and `enum` — the intersection every provider supports. **Keep it that way**:
+reaching for `$ref`, `oneOf` or `format` means writing three adapters instead
+of one.
+
+Two model sizes per provider: `reasoning` for fit assessment and resume
+assembly, `extraction` for parsing free text into fields. Model names move
+faster than this app ships, so every default is overridable by env
+(`OPENAI_MODEL_REASONING` and friends) without a code change.
+
+Keys are stored **per provider** in `users.api_keys` (jsonb, provider →
+ciphertext), with the active one in `users.api_provider`. One key per user
+would mean switching provider leaves you holding the wrong key, which fails as
+an opaque 401 rather than "you haven't given me an OpenAI key". The provider
+is a plain column and deliberately not folded into the ciphertext: it isn't a
+secret, and burying it there would mean a misconfigured `ENCRYPTION_KEY` leaves
+you unable to tell which provider a user even chose.
+
+`src/lib/providers.js` mirrors the list for the browser. It is a copy, not an
+import — `private/` is server-only and pulls in three SDKs, none of which
+belong in the bundle. The server normalizes whatever arrives, so drift there is
+a wrong label, never a wrong request.
 
 ## Job applications
 

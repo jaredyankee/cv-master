@@ -62,7 +62,7 @@ export default function NewApplicationForm({ onSubmit, onCancel }) {
             </button>
 
             <div className="panel-head">
-                <h2 className="panel-title">New application</h2>
+                <h2 className="panel-title">Job Application</h2>
             </div>
 
             <div className="app-field">

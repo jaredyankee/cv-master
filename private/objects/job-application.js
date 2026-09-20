@@ -1,5 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk"
 import { SYSTEM_PROMPTS } from "../registry/prompts.js"
+import { structured } from "../lib/providers/index.js"
 import { JOB_APPLICATION_TOOL, FIT_LEVELS, INTENT_CATEGORIES } from "../registry/schema.js"
 import { getResumeDumpByUser } from "../db/resume-dump.js"
 import { shapeDump } from "./resume-dump.js"
@@ -75,21 +75,16 @@ export function buildRequest(dump, { jobDescription, notes = "", questions = [] 
     const qs = (questions ?? []).map(str).filter(Boolean)
     if (qs.length) sections.push(`QUESTIONS THE APPLICATION ASKS:\n${qs.map((q, i) => `${i + 1}. ${q}`).join("\n")}`)
 
+    // The dump rides in the system prompt rather than the user message: it is
+    // the same text for every application this user builds, so providers that
+    // cache the system prompt get to reuse it. Provider-neutral — one string
+    // in, one string out; each adapter decides how to send it.
     return {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        thinking: { type: "adaptive" },
         system: [
-            { type: "text", text: SYSTEM_PROMPTS.BUILD_JOB_APPLICATION },
-            {
-                type: "text",
-                text: `RESUME DUMP (the candidate's complete profile, JSON):\n${JSON.stringify(dump, null, 2)}`,
-                cache_control: { type: "ephemeral" },
-            },
-        ],
-        tools: [JOB_APPLICATION_TOOL],
-        tool_choice: { type: "tool", name: JOB_APPLICATION_TOOL.name },
-        messages: [{ role: "user", content: sections.join("\n\n") }],
+            SYSTEM_PROMPTS.BUILD_JOB_APPLICATION,
+            `RESUME DUMP (the candidate's complete profile, JSON):\n${JSON.stringify(dump, null, 2)}`,
+        ].join("\n\n"),
+        user: sections.join("\n\n"),
     }
 }
 
@@ -172,7 +167,7 @@ export function normalizeResult(input) {
  * @param {{ userId: string, id: string, jobDescription: string, notes?: string, questions?: string[] }} payload
  * @returns {Promise<{ ok: true, application: object } | { ok: false, error: string }>}
  */
-export const createJobApplication = async (apiKey, payload) => {
+export const createJobApplication = async (apiKey, payload, provider) => {
     const { userId, id, jobDescription, notes = "", questions = [] } = payload ?? {}
     if (!userId) return { ok: false, error: "User id is missing" }
     if (!id)     return { ok: false, error: "Application id is missing" }
@@ -182,41 +177,32 @@ export const createJobApplication = async (apiKey, payload) => {
     if (!dumpRow) return { ok: false, error: "No resume dump on file for this user" }
     const dump = shapeDump(dumpRow)
 
-    const anthropic = new Anthropic({ apiKey })
-    let response
-    try {
-        response = await anthropic.messages.create(buildRequest(dump, { jobDescription, notes, questions }))
-    } catch (err) {
-        if (err instanceof Anthropic.AuthenticationError) {
-            return { ok: false, error: "Anthropic rejected the API key (401)" }
-        }
-        if (err instanceof Anthropic.RateLimitError) {
-            return { ok: false, error: "Anthropic rate limit hit (429); try again shortly" }
-        }
-        if (err instanceof Anthropic.APIError) {
-            console.error(`Anthropic API error ${err.status}:`, err.message)
-            return { ok: false, error: `Anthropic API error ${err.status}` }
-        }
-        throw err
-    }
+    const { system, user } = buildRequest(dump, { jobDescription, notes, questions })
 
-    console.log(
-        `job-application response: stop_reason=${response.stop_reason} blocks=${response.content?.length ?? 0} ` +
-        `usage=${JSON.stringify(response.usage ?? {})}`
-    )
+    // Judgment-heavy: assembling a resume and scoring fit is where the
+    // frontier model earns its price.
+    const result = await structured({
+        provider,
+        apiKey,
+        role: "reasoning",
+        system,
+        user,
+        tool: JOB_APPLICATION_TOOL,
+        maxTokens: MAX_TOKENS,
+        // Anthropic-only; the other adapters ignore it.
+        thinking: { type: "adaptive" },
+    })
 
-    if (response.stop_reason === "refusal") {
-        return { ok: false, error: `Model declined the request${response.stop_details?.category ? ` (${response.stop_details.category})` : ""}` }
-    }
-
-    const toolUse = response.content?.find(block => block.type === "tool_use")
-    if (!toolUse?.input) {
-        return { ok: false, error: `Model returned no tool_use block (stop_reason=${response.stop_reason})` }
+    if (!result.ok) {
+        const hint = result.status === 401 ? " — check the API key for this provider"
+            : result.status === 429 ? " — rate limited, try again shortly"
+            : ""
+        return { ok: false, error: `${result.provider ?? "model"} request failed: ${result.error}${hint}` }
     }
 
     let fields
     try {
-        fields = normalizeResult(toolUse.input)
+        fields = normalizeResult(result.data)
     } catch (err) {
         return { ok: false, error: err.message }
     }

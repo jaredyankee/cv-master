@@ -191,10 +191,10 @@ export default function Dashboard({
                             applications={applications}
                             onNew={showNew}
                             onSelect={showDetail}
-                            // A new application is built from the profile, and
+                            // A Job Application is built from the profile, and
                             // right now there isn't one.
                             disabledReason={isRegenerating
-                                ? 'Finish rebuilding your profile to start a new application.'
+                                ? 'Finish rebuilding your profile to start a Job Application.'
                                 : null}
                         />
                     </main>
