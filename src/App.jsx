@@ -420,6 +420,7 @@ function Workspace({ user, onSignOut }) {
             hasApiKey={hasApiKey}
             error={dumpError}
             onBack={hasDump ? () => setView('dashboard') : null}
+            onSignOut={onSignOut}
             feedback={reviseFeedback}
             isDone={isDone}
             onToggleDone={toggleDone}
