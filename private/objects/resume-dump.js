@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk"
 import { SYSTEM_PROMPTS } from "../registry/prompts.js"
 import {
     insertResumeDump,
@@ -10,7 +9,8 @@ import {
     cacheAndResetResumeDump,
     clearCachedDump,
 } from "../db/resume-dump.js";
-import { ensureUser, saveApiKey, hasApiKey } from "../db/users.js";
+import { ensureUser, saveApiKey, getKeyStatus } from "../db/users.js";
+import { structured } from "../lib/providers/index.js";
 import { RESUME_DUMP_TOOL } from "../registry/schema.js";
 import { str, text, strList, objList } from "../lib/normalize.js";
 
@@ -89,7 +89,22 @@ export const getResumeDump = async (user_id) => {
         source_text: row.source_text ?? null,
         cached_dump: row.cached_dump ?? null,
         cached_at:   row.cached_at ?? null,
-        has_api_key: await hasApiKey(user_id),
+        ...(await keyStatusFields(user_id)),
+    }
+}
+
+/**
+ * Which provider the user is on and which providers they already have a key
+ * for, so the form can mark the key field optional per provider instead of
+ * asking again for one already on file.
+ */
+const keyStatusFields = async (user_id) => {
+    const { provider, configured } = await getKeyStatus(user_id)
+    return {
+        provider,
+        configured_providers: configured,
+        // Kept for the existing client contract: a key for the active provider.
+        has_api_key: configured.includes(provider),
     }
 }
 
@@ -298,7 +313,7 @@ export const saveResumeDump = async (userId, dump, { finalized } = {}) => {
     return { ok: true, resume_dump: shapeDump(row) }
 }
 
-export const createResumeDump = async (apiKey, payload) => {
+export const createResumeDump = async (apiKey, payload, provider) => {
     // return if ID/dump already exists; can't have multiple dumps yet
     //@todo id checks when DB gets implemented
     if (!payload?.user_id) {
@@ -318,82 +333,56 @@ export const createResumeDump = async (apiKey, payload) => {
         };
     }
     
-    // The apiKey option is sent as the x-api-key header on every request and
-    // takes precedence over the ANTHROPIC_API_KEY env var.
-    const anthropic = new Anthropic({ apiKey });
-    
     const system = SYSTEM_PROMPTS["CREATE_RESUME_DUMP"];
     const user = payload.resume_dump;
 
-    try {
-        const response = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 8192, // @todo verify token usage
-            system,
-            tools: [
-                {
-                    name: "emit_resume_dump",
-                    description: "Returns the resume_dump",
-                    input_schema: RESUME_DUMP_TOOL.input_schema
-                }
-            ],
-            tool_choice: { type: "tool", name: "emit_resume_dump" },
-            messages: [
-                {
-                    role: "user",
-                    content: user
-                }
-            ]
-        });
-        // Log shape/usage only — the content block holds the user's full profile.
-        console.log(`resume-dump response: stop_reason=${response.stop_reason} blocks=${response.content?.length ?? 0} usage=${JSON.stringify(response.usage ?? {})}`);
+    // Extraction, not judgment: a mid-tier model reads free text into fields
+    // perfectly well, and the frontier model's price is the user's to pay.
+    const result = await structured({
+        provider,
+        apiKey,
+        role: "extraction",
+        system,
+        user,
+        tool: {
+            name: "emit_resume_dump",
+            description: "Returns the resume_dump",
+            input_schema: RESUME_DUMP_TOOL.input_schema,
+        },
+        maxTokens: 8192,
+    });
 
-        const toolUse = response.content?.find(block => block.type === "tool_use");
-        if (!toolUse?.input) {
-            throw new Error("resume_dump returned no tool_use block", response?.stop_reason);
-        }
-
-
-        // checking to see the full shape of a anthropic message response
-        if (response.content.length > 0) {
-            let data = toolUse.input;
-
-            // database updates
-            // 1. users row must exist before resume_dumps can reference it
-            await ensureUser(userId);
-
-            // 2. store the encrypted key — non-fatal. If ENCRYPTION_KEY is
-            //    misconfigured the dump should still be saved; the user just
-            //    re-enters the key next time.
-            try {
-                await saveApiKey(userId, apiKey);
-            } catch (keyErr) {
-                console.error("Could not store the API key (continuing):", keyErr.message);
-            }
-
-            // 3. the dump and its review diff. The raw text is stored
-            //    alongside so "Revise full dump" can hand the user back their
-            //    own words instead of the model's paraphrase of them.
-            const dump = await insertResumeDump(userId, data.resume_dump, { sourceText: user });
-            await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
-
-
-            return {
-                ok: true,
-                result: data
-            }
-        }
-    } catch (err) {
-        // Anthropic SDK errors carry the HTTP status + the API's error body;
-        // surface both so a 401 (bad key) vs 404 (bad model) is obvious in the logs.
-        if (err?.status) {
-            console.error(`Anthropic API error ${err.status}:`, JSON.stringify(err.error ?? err.message));
-        }
-        console.error("An error occured building the resume dump", err);
-        return {
-            ok: false,
-            error: err
-        };
+    if (!result.ok) {
+        console.error("An error occured building the resume dump:", result.error);
+        return { ok: false, error: result.error };
     }
 
+    const data = result.data;
+
+    try {
+        // database updates
+        // 1. users row must exist before resume_dumps can reference it
+        await ensureUser(userId);
+
+        // 2. store the encrypted key — non-fatal. If ENCRYPTION_KEY is
+        //    misconfigured the dump should still be saved; the user just
+        //    re-enters the key next time.
+        try {
+            await saveApiKey(userId, provider, apiKey);
+        } catch (keyErr) {
+            console.error("Could not store the API key (continuing):", keyErr.message);
+        }
+
+        // 3. the dump and its review diff. The raw text is stored
+        //    alongside so "Revise full dump" can hand the user back their
+        //    own words instead of the model's paraphrase of them.
+        const dump = await insertResumeDump(userId, data.resume_dump, { sourceText: user });
+        await insertResumeDumpDiff(userId, dump.id, data.revisions, data.questions);
+
+
+        return { ok: true, result: data }
+    } catch (err) {
+        console.error("An error occured storing the resume dump", err);
+        return { ok: false, error: err?.message ?? String(err) };
+    }
 }

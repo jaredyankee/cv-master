@@ -38,7 +38,8 @@ function Workspace({ user, onSignOut }) {
     const [dumpState, setDumpState]     = useState('READY') // 'NEW' | 'REVISE' | 'READY'
     const [cached, setCached]           = useState(null)    // { dump, at } — the previous profile
     const [sourceText, setSourceText]   = useState('')      // what the user typed last time
-    const [hasApiKey, setHasApiKey]     = useState(false)
+    const [provider, setProvider]       = useState('anthropic')
+    const [configuredProviders, setConfiguredProviders] = useState([])
     const [dumpError, setDumpError]     = useState(null)
 
     // The review's points, carried into a REVISE so they sit beside the box
@@ -88,14 +89,16 @@ function Workspace({ user, onSignOut }) {
                 const {
                     resume_dump, revisions = [], questions = [],
                     dump_state = 'READY', source_text = '', cached_dump = null,
-                    cached_at = null, has_api_key = false,
+                    cached_at = null, provider: storedProvider = 'anthropic',
+                    configured_providers = [],
                 } = result.data
 
                 setHasDump(true)
                 setDumpState(dump_state)
                 setSourceText(source_text ?? '')
                 setCached(cached_dump ? { dump: cached_dump, at: cached_at } : null)
-                setHasApiKey(Boolean(has_api_key))
+                setProvider(storedProvider)
+                setConfiguredProviders(configured_providers)
                 setResumeDump(resume_dump)
                 // keep the review payload so "Edit profile" can reopen it
                 setOnboardingResponse({ resume_dump, revisions, questions })
@@ -123,7 +126,7 @@ function Workspace({ user, onSignOut }) {
     }, [])
 
 
-    async function handleDumpSubmit(dumpText, apiKey) {
+    async function handleDumpSubmit(dumpText, apiKey, chosenProvider) {
         setIsLoading(true)
         setDumpError(null)
         try {
@@ -132,7 +135,7 @@ function Workspace({ user, onSignOut }) {
             // falls back to the stored key, so don't send an empty header.
             await appRequest("/resume-dump-background", "POST",
                 apiKey ? { 'X-Api-Key': apiKey } : null,
-                { resume_dump: dumpText }
+                { resume_dump: dumpText, provider: chosenProvider }
             );
 
             // Poll until AI processing completes, backing off as it drags on
@@ -152,7 +155,10 @@ function Workspace({ user, onSignOut }) {
                 setHasDump(true);
                 setDumpState('READY');
                 setSourceText(dumpText);
-                setHasApiKey(true);
+                // The key that just worked is now on file for this provider.
+                setProvider(chosenProvider);
+                setConfiguredProviders(prev =>
+                    prev.includes(chosenProvider) ? prev : [...prev, chosenProvider]);
                 // The worklist belonged to the text that was just replaced.
                 setReviseFeedback(null);
                 setAddressed(new Set());
@@ -324,7 +330,7 @@ function Workspace({ user, onSignOut }) {
 
     async function runApplicationAnalysis(id, input) {
         try {
-            const res = await appRequest("/job-application-background", "POST", null, { id, ...input })
+            const res = await appRequest("/job-application-background", "POST", null, { id, ...input, provider })
             // Background functions answer 202 before running; anything else is a
             // synchronous rejection (auth, validation, no API key).
             if (!res.ok) {
@@ -417,7 +423,8 @@ function Workspace({ user, onSignOut }) {
             isLoading={isLoading}
             mode={hasDump ? dumpState : 'FIRST'}
             initialText={dumpState === 'REVISE' ? sourceText : ''}
-            hasApiKey={hasApiKey}
+            provider={provider}
+            configuredProviders={configuredProviders}
             error={dumpError}
             onBack={hasDump ? () => setView('dashboard') : null}
             feedback={reviseFeedback}

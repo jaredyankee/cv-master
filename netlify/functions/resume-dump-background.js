@@ -2,6 +2,7 @@ import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
 import { getApiKey } from "../../private/db/users.js";
+import { normalizeProvider } from "../../private/lib/providers/index.js";
 import { bodyTooLarge } from "../../private/lib/limits.js";
 
 /**
@@ -49,6 +50,18 @@ export async function handler(event) {
         .join(" ");
     console.log(`env: ${envReport} | CONTEXT=${process.env.CONTEXT ?? "?"} DEPLOY_ID=${process.env.DEPLOY_ID ?? "?"}`);
 
+    if (!event?.body) {
+        console.error("No body found in request");
+        return { statusCode: 400, body: JSON.stringify({ message: "No body found in request" }) };
+    }
+
+    let body;
+    try {
+        body = JSON.parse(event.body);
+    } catch {
+        return { statusCode: 400, body: JSON.stringify({ message: "Body is not valid JSON" }) };
+    }
+
     let user;
     try {
         user = await requireUser(event);
@@ -57,45 +70,39 @@ export async function handler(event) {
         return { statusCode: err.status ?? 401, body: JSON.stringify({ message: "Unauthorized" }) };
     }
 
-    // BYOK: the Anthropic key comes from the form via the X-Api-Key header.
-    // Netlify lowercases incoming header names. Falling back to the key stored
-    // at onboarding is what lets a regenerate skip the key field — the user
-    // already gave it once. ANTHROPIC_API_KEY in the site env is a last resort
-    // for single-user deployments.
+    // BYOK. The provider comes from the form (or the user's stored choice),
+    // and the key must be the one for *that* provider — pairing one provider's
+    // key with another's endpoint is an opaque 401.
+    const requested = normalizeProvider(body?.provider ?? headers["x-api-provider"]);
+    let provider = requested;
     let apiKey = (headers["x-api-key"] ?? "").trim();
     let keySource = apiKey ? "header" : null;
 
     if (!apiKey) {
         try {
-            const stored = await getApiKey(user.userId);
-            if (stored) { apiKey = stored.trim(); keySource = "stored"; }
+            const stored = await getApiKey(user.userId, requested);
+            if (stored.apiKey) { apiKey = stored.apiKey.trim(); provider = stored.provider; keySource = "stored"; }
         } catch (err) {
             // A tampered or undecryptable value shouldn't take the request
             // down; fall through to the env key and then to the 401.
             console.error("Could not read the stored API key (continuing):", err.message);
         }
     }
-    if (!apiKey) {
+    if (!apiKey && provider === "anthropic") {
         apiKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
         if (apiKey) keySource = "env";
     }
 
     if (!apiKey) {
-        console.error("resume-dump-background: no Anthropic key in x-api-key header, on file for this user, or in ANTHROPIC_API_KEY");
+        console.error(`resume-dump-background: no ${provider} key in the request, on file for this user, or in env`);
         return { statusCode: 401, body: JSON.stringify({ message: "No API key in request" }) };
     }
     // Safe fingerprint — enough to tell "wrong key" from "no key" without logging the secret
     console.log(
-        `Anthropic key source=${keySource} ` +
+        `key provider=${provider} source=${keySource} ` +
         `len=${apiKey.length} prefix=${apiKey.slice(0, 7)} suffix=${apiKey.slice(-4)}`
     );
 
-    if (!event?.body) {
-        console.error("No body found in request");
-        return { statusCode: 400, body: JSON.stringify({ message: "No body found in request" }) };
-    }
-
-    const body = JSON.parse(event.body);
     const fn = fnRegistry("registry-dump:POST");
 
     // The 202 already went out, so this log is the only record of how the job
@@ -103,7 +110,7 @@ export async function handler(event) {
     // than throwing, and dropping that on the floor is why a failed ingestion
     // used to look identical to a successful one in the logs.
     try {
-        const result = await fn(apiKey, { user_id: user.userId, resume_dump: body.resume_dump });
+        const result = await fn(apiKey, { user_id: user.userId, resume_dump: body.resume_dump }, provider);
         if (result?.ok) {
             console.log(`resume-dump ingestion finished for sub=${user.userId}`);
         } else {
