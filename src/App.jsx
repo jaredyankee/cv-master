@@ -427,6 +427,7 @@ function Workspace({ user, onSignOut }) {
             configuredProviders={configuredProviders}
             error={dumpError}
             onBack={hasDump ? () => setView('dashboard') : null}
+            onSignOut={onSignOut}
             feedback={reviseFeedback}
             isDone={isDone}
             onToggleDone={toggleDone}

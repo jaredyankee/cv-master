@@ -138,7 +138,6 @@
   color: var(--muted);
 }
 
-.onboarding-header .back-btn { margin-bottom: 16px; }
 
 .onboarding > .alert { margin-bottom: 28px; }
 
@@ -178,6 +177,31 @@
   .onboarding.has-aside > .checklist { margin-bottom: 34px; }
 }
 
+/* Back on the left, sign out on the right. On a first run there is no back
+   button and no top bar, so this row is the only chrome on the screen — and
+   the only way out. */
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+/* The row owns the spacing; .back-btn carries its own margin for use
+   elsewhere, which would double it here. */
+.onboarding-nav .back-btn { margin-bottom: 0; }
+
+@media (max-width: 700px) {
+  .onboarding-nav { margin-bottom: 18px; }
+  /* Buttons don't inherit the root font shorthand, so these sit at the UA's
+     line-height: normal and padding alone leaves a ~28px target. Setting it
+     explicitly gets them to ~39px. */
+  .onboarding-nav .back-btn,
+  .onboarding-nav .link-btn {
+    padding: 9px 0;
+    line-height: 1.5;
+  }
 /* ── Provider picker ─────────────────────────────────────────── */
 
 /* A segmented row rather than a <select>: three options that each change what

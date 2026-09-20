@@ -41,6 +41,9 @@ const COPY = {
  *   configuredProviders: string[] — providers this user already has a key for
  *   error:       string | null
  *   onBack():    optional; shown when there is a dashboard to go back to
+ *   onSignOut(): optional; the only way out of this screen on a first run —
+ *                there is no top bar here, so without it a user who signs in
+ *                and lands on the dump form has no way back to sign-in
  *   feedback:    { revisions, questions } — the review's points, shown beside
  *                the box in REVISE mode. They are what the rewrite is *for*,
  *                so they belong here rather than on a screen left behind.
@@ -56,6 +59,7 @@ export default function OnboardingForm({
   configuredProviders = [],
   error = null,
   onBack,
+  onSignOut,
   feedback = null,
   isDone,
   onToggleDone,
@@ -91,10 +95,23 @@ export default function OnboardingForm({
   return (
     <div className={`onboarding${showChecklist ? ' has-aside' : ''}`}>
       <header className="onboarding-header">
-        {onBack && !isLoading && (
-          <button type="button" className="back-btn" onClick={onBack}>
-            <span aria-hidden="true">←</span> Dashboard
-          </button>
+        {(onBack || onSignOut) && (
+          <div className="onboarding-nav">
+            {onBack && !isLoading ? (
+              <button type="button" className="back-btn" onClick={onBack}>
+                <span aria-hidden="true">←</span> Dashboard
+              </button>
+            ) : <span />}
+            {/* Stays put while the model works, unlike the back button: the
+                whole point of it is being a way out, and a job that hangs is
+                exactly when you'd want one. The ingestion runs server-side
+                and finishes regardless. */}
+            {onSignOut && (
+              <button type="button" className="link-btn" onClick={onSignOut}>
+                Sign out
+              </button>
+            )}
+          </div>
         )}
         <h1 className="onboarding-title">{copy.title}</h1>
         <p className="onboarding-tagline">{copy.tagline}</p>
