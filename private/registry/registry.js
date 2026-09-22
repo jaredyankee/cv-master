@@ -10,6 +10,7 @@ import {
     getJobApplicationPoll,
     listJobApplications,
     saveJobApplicationResume,
+    saveJobApplicationStatus,
 } from "../objects/job-application.js";
 
 const registry = new Map();
@@ -22,8 +23,9 @@ registry.set("registry-dump:ACT",  runDumpAction);       // regenerate / recover
 
 registry.set("job-application:POST", createJobApplication);       // background: AI + insert
 registry.set("job-application:GET",  getJobApplicationPoll);      // ?id=… — does the row exist yet?
-registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications
+registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications, plus the status labels
 registry.set("job-application:PUT",  saveJobApplicationResume);   // user edits to the built resume
+registry.set("job-application:STAT", saveJobApplicationStatus);   // user moves it along their lifecycle
 
 export const fnRegistry = (dir) => {
     console.log("fn registry");

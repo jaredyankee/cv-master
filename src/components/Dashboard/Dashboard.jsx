@@ -23,6 +23,8 @@ import './Dashboard.css'
  *   onEditProfile()        — go back to the review step
  *   onSaveDump(patch)      — optional; persists a partial dump edit
  *   onSaveResume(id, ja)   — optional; persists an edited built resume
+ *   statuses               — string[] — the lifecycle stages, in order
+ *   onSetStatus(id, s)     — optional; moves one application along the lifecycle
  *   user                   — { name, email } from the auth session (optional)
  *   onSignOut()            — optional; renders a Sign out button when provided
  *   dumpState              — 'READY' | 'NEW' | 'REVISE'
@@ -42,6 +44,8 @@ export default function Dashboard({
     onEditProfile,
     onSaveDump,
     onSaveResume,
+    statuses = [],
+    onSetStatus,
     user = null,
     onSignOut,
     dumpState = 'READY',
@@ -139,6 +143,8 @@ export default function Dashboard({
                             application={selected}
                             onBack={showList}
                             onSaveResume={onSaveResume && (ja => onSaveResume(selected.id, ja))}
+                            statuses={statuses}
+                            onSetStatus={onSetStatus && (s => onSetStatus(selected.id, s))}
                           />}
                 </main>
             </div>
@@ -191,6 +197,7 @@ export default function Dashboard({
                             applications={applications}
                             onNew={showNew}
                             onSelect={showDetail}
+                            statuses={statuses}
                             // A Job Application is built from the profile, and
                             // right now there isn't one.
                             disabledReason={isRegenerating
