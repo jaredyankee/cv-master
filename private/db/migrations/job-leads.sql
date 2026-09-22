@@ -95,3 +95,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS job_leads_user_url_idx
 -- The dashboard reads newest-first, and only the leads still in play.
 CREATE INDEX IF NOT EXISTS job_leads_user_created_idx
     ON job_leads (user_id, created_at DESC);
+
+/* ── Run tracking ────────────────────────────────────────────────
+ *
+ * One slot, not a history — the same shape as resume_dumps.cached_dump, and
+ * for the same reason: what matters is the run you are in or the one that
+ * just failed, not every run you have ever done.
+ *
+ * It answers three questions the UI needs and one the server does. For the
+ * UI: is a search running now, did the last one fail, and how many did it
+ * find. For the server: has the automatic first run already happened, so
+ * finishing onboarding twice — or reloading mid-run — doesn't start a second
+ * search against the user's Perplexity credit.
+ *
+ * Separate columns rather than a runs table because a second concurrent run
+ * is a bug, not a case to model.
+ */
+ALTER TABLE job_search_preferences
+    ADD COLUMN IF NOT EXISTS last_run_started_at  TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_run_finished_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_run_error       TEXT,
+    ADD COLUMN IF NOT EXISTS last_run_found       INTEGER,
+
+    -- Set the first time a search is started for this user, automatically or
+    -- by hand. Its presence is what stops the automatic run firing again.
+    ADD COLUMN IF NOT EXISTS first_run_at         TIMESTAMPTZ;

@@ -11,6 +11,13 @@ import {
     listJobApplications,
     saveJobApplicationResume,
 } from "../objects/job-application.js";
+import {
+    runJobSearch,
+    getSearchState,
+    getOrSeedPreferences,
+    savePreferences,
+    dismiss as dismissLead,
+} from "../objects/job-search.js";
 
 const registry = new Map();
 
@@ -24,6 +31,12 @@ registry.set("job-application:POST", createJobApplication);       // background:
 registry.set("job-application:GET",  getJobApplicationPoll);      // ?id=… — does the row exist yet?
 registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications
 registry.set("job-application:PUT",  saveJobApplicationResume);   // user edits to the built resume
+
+registry.set("job-search:RUN",     runJobSearch);            // background: Perplexity + insert new leads
+registry.set("job-search:GET",     getSearchState);          // leads, preferences and run state
+registry.set("job-search:FORM",    getOrSeedPreferences);    // ?form=1 — stored prefs, or a guess from the dump
+registry.set("job-search:PREFS",   savePreferences);         // user edits to the search preferences
+registry.set("job-search:DISMISS", dismissLead);             // hide a lead from future runs
 
 export const fnRegistry = (dir) => {
     console.log("fn registry");

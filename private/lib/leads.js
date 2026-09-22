@@ -221,6 +221,91 @@ export function salaryFloorOf(text) {
     return found.length === 1 ? found[0] : null
 }
 
+/* ── Seeding preferences ─────────────────────────────────────── */
+
+export const ARRANGEMENTS = ['remote', 'hybrid', 'onsite', 'any']
+
+/**
+ * A first guess at structured preferences, read out of the dump's
+ * `lookingFor` prose.
+ *
+ * The same two parsers used on listings, pointed at the user's own sentence:
+ * "remote, around $130k" states an arrangement and a floor as plainly as a
+ * posting does. Nothing is invented — a sentence that doesn't name a floor
+ * produces no floor, and the form shows the user what was read so they can
+ * correct it before anything is searched.
+ *
+ * Titles don't come from `lookingFor` — it mixes them with everything else,
+ * and picking out which words are the job title is the kind of guess that
+ * belongs to the user. They come from the jobs the user has actually held
+ * instead, which is their own text and needs no interpretation.
+ *
+ * @param {string} lookingFor
+ * @param {object} [dump]  the resume dump, for seeding titles
+ */
+export function seedPreferences(lookingFor, dump) {
+    const text = typeof lookingFor === 'string' ? lookingFor : ''
+    return {
+        arrangement: arrangementOf(text) ?? 'any',
+        locations: [],
+        minSalary: salaryFloorOf(text),
+        titles: seedTitlesFromDump(dump),
+        seniority: '',
+        excludeCompanies: [],
+    }
+}
+
+/**
+ * The titles a user has actually held, newest first, deduplicated.
+ *
+ * Without this the automatic first search would have nothing to search for:
+ * a query needs a title, and the one place a title exists verbatim is the
+ * user's own history. It is copied, never paraphrased.
+ *
+ * Entries marked excludeFromResume are skipped. The user has said that work
+ * is not for sharing, and searching for more of it would be acting on exactly
+ * what they asked to keep private.
+ */
+export function seedTitlesFromDump(dump, max = 3) {
+    const entries = [
+        ...(Array.isArray(dump?.experience) ? dump.experience : []),
+        ...(Array.isArray(dump?.freelance) ? dump.freelance : []),
+    ]
+
+    const seen = new Set()
+    const titles = []
+    for (const e of entries) {
+        if (e?.excludeFromResume) continue
+        const title = typeof e?.title === 'string' ? e.title.trim() : ''
+        if (!title) continue
+        const key = title.toLowerCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+        titles.push(title)
+        if (titles.length >= max) break
+    }
+    return titles
+}
+
+/** Coerces a preferences payload into the stored shape. */
+export function normalizePreferences(input) {
+    const p = input ?? {}
+    const list = v => (Array.isArray(v) ? v.map(s => (typeof s === 'string' ? s.trim() : '')).filter(Boolean).slice(0, 40) : [])
+    const salary = Number(p.minSalary)
+
+    return {
+        arrangement: ARRANGEMENTS.includes(p.arrangement) ? p.arrangement : 'any',
+        locations: list(p.locations),
+        // 0 and negatives mean "unstated" rather than "free" — a floor of zero
+        // would filter nothing anyway, and storing it as a number invites a
+        // comparison that reads as deliberate.
+        minSalary: Number.isFinite(salary) && salary > 0 ? Math.round(salary) : null,
+        titles: list(p.titles),
+        seniority: typeof p.seniority === 'string' ? p.seniority.trim().slice(0, 200) : '',
+        excludeCompanies: list(p.excludeCompanies),
+    }
+}
+
 /* ── Filtering ───────────────────────────────────────────────── */
 
 /**
