@@ -848,6 +848,19 @@
   margin-left: 8px;
 }
 
+/* Where this application came from, when it started as a lead — the link to
+   open, and a nudge to paste the real posting. */
+.app-from-lead {
+  margin: 0 0 22px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--accent-border);
+  background: var(--accent-bg);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 .app-hint {
   font-size: 14px;
   line-height: 1.65;

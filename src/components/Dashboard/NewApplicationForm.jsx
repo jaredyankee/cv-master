@@ -13,12 +13,16 @@ const blankRow = () => ({ id: nextRowId++, text: '', done: false })
  *                      complete (still editable) and reveals a new blank row.
  *
  * Props:
- *   onSubmit({ jobDescription, notes, questions: string[] })
+ *   onSubmit({ jobDescription, notes, questions: string[], leadId? })
  *   onCancel()
+ *   lead — optional; the listing this application starts from. Its link goes
+ *          into the notes and at the top of the form, but the job description
+ *          stays empty: the fit assessment should read the real posting, not
+ *          a two-line search snippet standing in for it.
  */
-export default function NewApplicationForm({ onSubmit, onCancel }) {
+export default function NewApplicationForm({ onSubmit, onCancel, lead = null }) {
     const [jobDescription, setJobDescription] = useState('')
-    const [notes, setNotes]                   = useState('')
+    const [notes, setNotes]                   = useState(() => (lead?.url ? `Listing: ${lead.url}` : ''))
     const [rows, setRows]                     = useState(() => [blankRow()])
 
     const canSubmit = jobDescription.trim().length > 0
@@ -52,6 +56,7 @@ export default function NewApplicationForm({ onSubmit, onCancel }) {
             jobDescription: jobDescription.trim(),
             notes:          notes.trim(),
             questions:      rows.map(r => r.text.trim()).filter(Boolean),
+            ...(lead?.id ? { leadId: lead.id } : {}),
         })
     }
 
@@ -64,6 +69,18 @@ export default function NewApplicationForm({ onSubmit, onCancel }) {
             <div className="panel-head">
                 <h2 className="panel-title">Job Application</h2>
             </div>
+
+            {lead && (
+                <p className="app-from-lead">
+                    From{' '}
+                    {/^https:\/\//i.test(lead.url ?? '') ? (
+                        <a href={lead.url} target="_blank" rel="noopener noreferrer">
+                            {lead.title || lead.url}
+                        </a>
+                    ) : (lead.title || 'a saved listing')}
+                    . Open the posting and paste its full description below.
+                </p>
+            )}
 
             <div className="app-field">
                 <label htmlFor="jd" className="app-label">Job description</label>

@@ -9,6 +9,7 @@ import {
     listJobApplications as listJobApplicationRows,
     updateJobApplicationResume,
 } from "../db/job-applications.js"
+import { linkLeadToApplication } from "../db/job-leads.js"
 // Namespaced: this module already has its own lighter `str` for the AI-output
 // path, which must not gain the length caps meant for user-submitted edits.
 import * as n from "../lib/normalize.js"
@@ -168,7 +169,7 @@ export function normalizeResult(input) {
  * @returns {Promise<{ ok: true, application: object } | { ok: false, error: string }>}
  */
 export const createJobApplication = async (apiKey, payload, provider) => {
-    const { userId, id, jobDescription, notes = "", questions = [] } = payload ?? {}
+    const { userId, id, jobDescription, notes = "", questions = [], leadId = null } = payload ?? {}
     if (!userId) return { ok: false, error: "User id is missing" }
     if (!id)     return { ok: false, error: "Application id is missing" }
     if (!str(jobDescription)) return { ok: false, error: "Job description is missing" }
@@ -216,6 +217,20 @@ export const createJobApplication = async (apiKey, payload, provider) => {
         additional_questions: strs(questions),
         ...fields,
     })
+
+    // Tie the lead to what it became. Only now: the row is written once the
+    // analysis exists, so linking any earlier would point the foreign key at
+    // nothing. Scoped to the user, so a forged leadId can't touch someone
+    // else's lead. And never fatal — the application is the thing the user
+    // asked for, and it exists; a lead still showing "not started" is a
+    // cosmetic miss, not a reason to report the whole request as failed.
+    if (leadId) {
+        try {
+            await linkLeadToApplication(userId, leadId, row.id)
+        } catch (err) {
+            console.error(`Could not link lead to application: ${err?.message ?? err}`)
+        }
+    }
 
     return { ok: true, application: shapeApplication(row) }
 }

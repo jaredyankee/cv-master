@@ -2,6 +2,7 @@ import { useState } from 'react'
 import ResumeDumpPanel from './ResumeDumpPanel'
 import ApplicationsPanel from './ApplicationsPanel'
 import NewApplicationForm from './NewApplicationForm'
+import LeadsPanel from './LeadsPanel'
 import ApplicationDetail from './ApplicationDetail'
 import RegenerateDialog from './RegenerateDialog'
 import CachedDumpChip from './CachedDumpChip'
@@ -33,6 +34,10 @@ import './Dashboard.css'
  *   onRecoverCache()       — put the cached profile back
  *   onClearCache()         — delete the cached profile
  *   onResumeRegeneration() — return to the dump form mid-flow
+ *   leads                  — LeadsPanel's state; see there
+ *   leadsForm / leadsError — the open preferences form, and the last search error
+ *   onOpenLeadsForm(), onCloseLeadsForm(), onSaveLeadPreferences(p, key),
+ *   onSearchLeads(), onDismissLead(id) — passed through to LeadsPanel
  */
 export default function Dashboard({
     resumeDump,
@@ -52,9 +57,18 @@ export default function Dashboard({
     onRecoverCache,
     onClearCache,
     onResumeRegeneration,
+    leads = null,
+    leadsForm = null,
+    leadsError = null,
+    onOpenLeadsForm,
+    onCloseLeadsForm,
+    onSaveLeadPreferences,
+    onSearchLeads,
+    onDismissLead,
 }) {
-    // { mode: 'list' | 'new' | 'detail', id }
-    const [view, setView] = useState({ mode: 'list', id: null })
+    // { mode: 'list' | 'new' | 'detail', id, lead } — `lead` is set when a new
+    // application starts from a listing, so the form can carry its link.
+    const [view, setView] = useState({ mode: 'list', id: null, lead: null })
     // Which list panel a narrow viewport shows. Ignored by CSS above the breakpoint.
     const [tab, setTab] = useState('apps')
     const [regenOpen, setRegenOpen] = useState(false)
@@ -97,9 +111,10 @@ export default function Dashboard({
         ? applications.find(a => a.id === view.id) ?? null
         : null
 
-    const showList   = () => setView({ mode: 'list', id: null })
-    const showNew    = () => setView({ mode: 'new', id: null })
-    const showDetail = (id) => setView({ mode: 'detail', id })
+    const showList     = () => setView({ mode: 'list', id: null, lead: null })
+    const showNew      = () => setView({ mode: 'new', id: null, lead: null })
+    const showNewFrom  = (lead) => setView({ mode: 'new', id: null, lead })
+    const showDetail   = (id) => setView({ mode: 'detail', id, lead: null })
 
     // Both panels share the page scroller, so switching tabs while scrolled
     // down would drop you into the middle of the other one.
@@ -134,7 +149,7 @@ export default function Dashboard({
                 {topbar}
                 <main className="focus">
                     {view.mode === 'new'
-                        ? <NewApplicationForm onSubmit={handleCreate} onCancel={showList} />
+                        ? <NewApplicationForm onSubmit={handleCreate} onCancel={showList} lead={view.lead} />
                         : <ApplicationDetail
                             application={selected}
                             onBack={showList}
@@ -187,6 +202,23 @@ export default function Dashboard({
                         />
                     </aside>
                     <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
+                        {/* Above the list, and never blocking it: a search runs in
+                            the background and this panel shows its progress while
+                            every button below stays live. Hidden mid-rebuild, when
+                            there is no profile for a search to be about. */}
+                        {!isRegenerating && (
+                            <LeadsPanel
+                                state={leads}
+                                form={leadsForm}
+                                error={leadsError}
+                                onOpenForm={onOpenLeadsForm}
+                                onCloseForm={onCloseLeadsForm}
+                                onSavePreferences={onSaveLeadPreferences}
+                                onSearch={onSearchLeads}
+                                onDismiss={onDismissLead}
+                                onStart={showNewFrom}
+                            />
+                        )}
                         <ApplicationsPanel
                             applications={applications}
                             onNew={showNew}

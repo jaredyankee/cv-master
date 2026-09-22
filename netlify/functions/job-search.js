@@ -14,8 +14,8 @@ import { bodyTooLarge } from "../../private/lib/limits.js";
  *   GET /job-search?form=1 → { preferences, seeded }
  *
  * Save preferences (never starts a search — that is the background function):
- *   PUT /job-search        → { ok: true, preferences, run }
- *   body: { preferences }
+ *   PUT /job-search        → { ok: true, preferences, run, hasKey }
+ *   body: { preferences, searchKey? }
  *
  * Hide a lead so a later run doesn't resurface it:
  *   PUT /job-search?dismiss=<lead id> → { ok: true, lead }
@@ -63,7 +63,7 @@ export async function handler(event) {
             }
 
             const fn = fnRegistry("job-search:PREFS");
-            const result = await fn(user.userId, body.preferences);
+            const result = await fn(user.userId, body.preferences, body.searchKey);
             if (!result.ok) return json(400, { message: result.error });
             return json(200, { ok: true, ...result });
         }

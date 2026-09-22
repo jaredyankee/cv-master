@@ -1,7 +1,7 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
-import { getApiKey } from "../../private/db/users.js";
+import { getApiKey, saveSearchKey } from "../../private/db/users.js";
 import { normalizeProvider } from "../../private/lib/providers/index.js";
 import { bodyTooLarge } from "../../private/lib/limits.js";
 
@@ -68,6 +68,22 @@ export async function handler(event) {
     } catch (err) {
         console.error("resume-dump-background auth:", err.message);
         return { statusCode: err.status ?? 401, body: JSON.stringify({ message: "Unauthorized" }) };
+    }
+
+    // The Perplexity key, if the form carried one. Stored now so it is on file
+    // by the time the review is finalized, which is when the first listing
+    // search starts by itself. In the body rather than a header: X-Api-Key is
+    // already this request's model key, and a new header would have to be
+    // added to two CORS allowlists before a browser would send it.
+    const searchKey = typeof body?.search_key === "string" ? body.search_key.trim() : "";
+    if (searchKey) {
+        try {
+            await saveSearchKey(user.userId, searchKey);
+        } catch (err) {
+            // The profile is what the user came here for; a key that didn't
+            // save is recoverable from the listings panel.
+            console.error("Could not store the search key (continuing):", err.message);
+        }
     }
 
     // BYOK. The provider comes from the form (or the user's stored choice),

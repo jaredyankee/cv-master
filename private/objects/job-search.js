@@ -1,4 +1,4 @@
-import { getSearchKey } from "../db/users.js"
+import { getSearchKey, hasSearchKey, saveSearchKey } from "../db/users.js"
 import { getResumeDumpByUser } from "../db/resume-dump.js"
 import { shapeDump } from "./resume-dump.js"
 import { search, buildQueries } from "../lib/search/perplexity.js"
@@ -63,9 +63,10 @@ export const shapeRun = (row) => ({
  */
 export const getSearchState = async (userId) => {
     if (!userId) return { ok: false, error: "User id is missing" }
-    const [prefsRow, leadRows] = await Promise.all([
+    const [prefsRow, leadRows, hasKey] = await Promise.all([
         getSearchPreferences(userId),
         listLeads(userId),
+        hasSearchKey(userId),
     ])
     return {
         ok: true,
@@ -73,6 +74,9 @@ export const getSearchState = async (userId) => {
         preferences: shapePreferences(prefsRow),
         run: shapeRun(prefsRow),
         configured: Boolean(prefsRow),
+        // Whether a key is on file — never the key. The panel needs to know
+        // whether to ask for one, and nothing more.
+        hasKey,
     }
 }
 
@@ -96,10 +100,25 @@ export const getOrSeedPreferences = async (userId) => {
 
 /* ── writes ──────────────────────────────────────────────────── */
 
-export const savePreferences = async (userId, input) => {
+/**
+ * Saves preferences, and a Perplexity key if one came with them.
+ *
+ * The key travels in the body rather than a header. The model key uses
+ * X-Api-Key, which is on every allowlist; a new header would need adding to
+ * the CORS allowlist in netlify.toml *and* in private/cors, and a preflight
+ * that silently refuses it looks exactly like a broken save.
+ */
+export const savePreferences = async (userId, input, searchKey) => {
     if (!userId) return { ok: false, error: "User id is missing" }
+    const key = typeof searchKey === "string" ? searchKey.trim() : ""
+    if (key) await saveSearchKey(userId, key)
     const row = await saveSearchPreferences(userId, normalizePreferences(input))
-    return { ok: true, preferences: shapePreferences(row), run: shapeRun(row) }
+    return {
+        ok: true,
+        preferences: shapePreferences(row),
+        run: shapeRun(row),
+        hasKey: key ? true : await hasSearchKey(userId),
+    }
 }
 
 export const dismiss = async (userId, id) => {
