@@ -96,6 +96,56 @@ export const updateJobApplicationResume = async (user_id, id, ja) => {
     return row ?? null
 }
 
+/**
+ * Moves one application along the user's lifecycle. Nothing else on the row is
+ * touched: where an application has got to is not a fact about the analysis.
+ *
+ * Scoped to the owner, like every other write here. Returns null when the
+ * application doesn't exist or isn't theirs.
+ *
+ * @param {string} user_id
+ * @param {string} id
+ * @param {string} status  a label of job_application_status
+ */
+export const updateJobApplicationStatus = async (user_id, id, status) => {
+    const [row] = await sql`
+        UPDATE job_applications SET
+            status     = ${status}::job_application_status,
+            updated_at = now()
+        WHERE id = ${id} AND user_id = ${user_id}
+        RETURNING *
+    `
+    return row ?? null
+}
+
+/**
+ * The labels of the job_application_status enum, in their declared order.
+ *
+ * Read from Postgres rather than written out here. The enum lives in the
+ * database, so a list in JS would be a copy, and a copy that drifts doesn't
+ * fail loudly — it fails as `invalid input value for enum` on the write, after
+ * the user has clicked. Asking the type itself cannot drift.
+ *
+ * The declared order is the pipeline order, which is what "advance" walks.
+ *
+ * Cached per warm instance: the type changes with a migration, not with a
+ * request, and every query is Neon compute the site owner pays for.
+ */
+let cachedStatuses = null
+
+export const listStatusValues = async () => {
+    if (cachedStatuses) return cachedStatuses
+    const rows = await sql`
+        SELECT enumlabel
+        FROM pg_enum
+        JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+        WHERE pg_type.typname = 'job_application_status'
+        ORDER BY pg_enum.enumsortorder
+    `
+    cachedStatuses = rows.map(r => r.enumlabel)
+    return cachedStatuses
+}
+
 /** One application, scoped to its owner. Returns null if it doesn't exist or isn't theirs. */
 export const getJobApplication = async (user_id, id) => {
     const [row] = await sql`

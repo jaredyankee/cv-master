@@ -8,6 +8,8 @@ import {
     getJobApplication,
     listJobApplications as listJobApplicationRows,
     updateJobApplicationResume,
+    updateJobApplicationStatus,
+    listStatusValues,
 } from "../db/job-applications.js"
 import { linkLeadToApplication } from "../db/job-leads.js"
 // Namespaced: this module already has its own lighter `str` for the AI-output
@@ -301,8 +303,44 @@ export const getJobApplicationPoll = async (userId, id) => {
     return row ? shapeApplication(row) : null
 }
 
-/** All of the user's applications, newest first, shaped for the UI. */
+/**
+ * Moves one application along the user's lifecycle.
+ *
+ * The status is checked against the enum before it reaches SQL. Postgres would
+ * reject an unknown label anyway, but as a 500 with a driver message in it;
+ * checking here makes it a 400 that names the bad value, and keeps a
+ * guessed-at status from ever being sent.
+ *
+ * @returns {Promise<{ ok: true, application: object } | { ok: false, error: string }>}
+ */
+export const saveJobApplicationStatus = async (userId, id, status) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    if (!id)     return { ok: false, error: "Application id is missing" }
+
+    const allowed = await listStatusValues()
+    if (!allowed.includes(status)) {
+        return { ok: false, error: `Unknown status ${JSON.stringify(status)}` }
+    }
+
+    const row = await updateJobApplicationStatus(userId, id, status)
+    if (!row) return { ok: false, error: "Application not found" }
+
+    return { ok: true, application: shapeApplication(row) }
+}
+
+/**
+ * All of the user's applications, newest first, shaped for the UI — plus the
+ * statuses they can be moved between.
+ *
+ * The statuses ride along with the list rather than getting their own endpoint:
+ * the dashboard already makes this call on load, and a second round trip for a
+ * list that changes with a migration would be an invocation and a Neon query
+ * per page view for nothing.
+ */
 export const listJobApplications = async (userId) => {
-    const rows = await listJobApplicationRows(userId)
-    return rows.map(shapeApplication)
+    const [rows, statuses] = await Promise.all([
+        listJobApplicationRows(userId),
+        listStatusValues(),
+    ])
+    return { applications: rows.map(shapeApplication), statuses }
 }

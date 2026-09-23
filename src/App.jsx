@@ -65,6 +65,10 @@ function Workspace({ user, onSignOut }) {
     const [onboardingResponse, setOnboardingResponse] = useState(null)
     const [resumeDump, setResumeDump]                 = useState(null)  // finalized dump
     const [applications, setApplications]             = useState([])    // newest first
+    // The job_application_status labels, in pipeline order, as the database
+    // defines them. Empty until the list loads, which is what makes the status
+    // control read-only rather than offering stages that may not exist.
+    const [statuses, setStatuses]                     = useState([])
     // Listings. Loaded after the dashboard is on screen, never before it: a
     // slow read here must not hold up the applications list.
     const [leads, setLeads]             = useState(null)   // { leads, preferences, run, hasKey, loaded }
@@ -152,6 +156,7 @@ function Workspace({ user, onSignOut }) {
                     const appsRes = await appRequest("/job-application", "GET")
                     const apps = appsRes.ok ? await appsRes.json() : null
                     if (!cancelled && Array.isArray(apps?.applications)) setApplications(apps.applications)
+                    if (!cancelled && Array.isArray(apps?.statuses)) setStatuses(apps.statuses)
                 } catch (err) {
                     console.error("Could not load applications", err)
                 }
@@ -335,6 +340,22 @@ function Workspace({ user, onSignOut }) {
         const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "PUT", null, {
             job_application: jobApplication,
         })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        if (body?.data) patchApplication(id, body.data)
+    }
+
+    /**
+     * Move one application along the lifecycle. Throws on failure so
+     * StatusControl can say so and leave the stored status on screen —
+     * an optimistic update here would show a stage that isn't saved.
+     */
+    async function handleSetStatus(id, status) {
+        const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "PUT", null, { status })
         if (!res.ok) {
             let message = `Save failed (${res.status})`
             try { message = (await res.json()).message ?? message } catch { /* no body */ }
@@ -584,6 +605,8 @@ function Workspace({ user, onSignOut }) {
                 onEditProfile={() => setView(onboardingResponse ? 'review' : 'onboarding')}
                 onSaveDump={handleSaveDump}
                 onSaveResume={handleSaveResume}
+                statuses={statuses}
+                onSetStatus={handleSetStatus}
                 leads={leads}
                 leadsForm={leadsForm}
                 leadsError={leadsError}

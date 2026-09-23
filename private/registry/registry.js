@@ -10,6 +10,7 @@ import {
     getJobApplicationPoll,
     listJobApplications,
     saveJobApplicationResume,
+    saveJobApplicationStatus,
 } from "../objects/job-application.js";
 import {
     runJobSearch,
@@ -29,8 +30,9 @@ registry.set("registry-dump:ACT",  runDumpAction);       // regenerate / recover
 
 registry.set("job-application:POST", createJobApplication);       // background: AI + insert
 registry.set("job-application:GET",  getJobApplicationPoll);      // ?id=… — does the row exist yet?
-registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications
+registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications, plus the status labels
 registry.set("job-application:PUT",  saveJobApplicationResume);   // user edits to the built resume
+registry.set("job-application:STAT", saveJobApplicationStatus);   // user moves it along their lifecycle
 
 registry.set("job-search:RUN",     runJobSearch);            // background: Perplexity + insert new leads
 registry.set("job-search:GET",     getSearchState);          // leads, preferences and run state

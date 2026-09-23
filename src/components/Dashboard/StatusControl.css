@@ -1,0 +1,86 @@
+/* Where an application has got to, and the controls that move it. */
+
+.status-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* The status reads as a label rather than a control, so the two buttons beside
+   it are clearly the things you press. */
+.status-current {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text-h);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-step {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* Named for where it goes, so the label can run long — "Advance to
+   Interviewing" is wider than the button beside it expects. */
+.status-advance {
+  white-space: nowrap;
+}
+
+.status-select {
+  padding: 5px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.status-select:hover:not(:disabled) { border-color: var(--text-h); }
+
+.status-select:disabled,
+.status-advance:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.status-error {
+  margin: 0;
+  color: var(--error);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* ── Phones ──────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  /* Three things don't fit across a phone: "Advance to Interviewing" alone is
+     most of the width. So the status takes its own line and the two controls
+     share the next, rather than the button claiming a row and stranding the
+     dropdown below it. */
+  .status-current { flex-basis: 100%; }
+  .status-advance { flex: 1; }
+  .status-select  { padding: 8px 11px; }
+}

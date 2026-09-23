@@ -1,6 +1,7 @@
 import FitBadge from './FitBadge'
 import Progress from '../common/Progress'
 import { applicationLabel, formatDate, analysisState } from './applicationUtils'
+import { statusLabel } from '../../lib/status'
 
 /**
  * The applications list.
@@ -11,8 +12,13 @@ import { applicationLabel, formatDate, analysisState } from './applicationUtils'
  *   onSelect(id)
  *   disabledReason: string | null — why a Job Application can't be started
  *                   right now. Existing ones stay open and readable.
+ *   statuses:       string[] — used only to tell a live stage from a stale one
+ *
+ * Status is shown here but changed on the detail screen. Scanning the list for
+ * "who haven't I heard back from" is the job this serves; editing in place
+ * would put a dropdown on every row for something done once per application.
  */
-export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null }) {
+export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null, statuses = [] }) {
     const blocked = Boolean(disabledReason)
 
     return (
@@ -63,6 +69,16 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                                 <button type="button" className="app-card" onClick={() => onSelect(app.id)}>
                                     <span className="app-card-top">
                                         <span className="app-card-title">{applicationLabel(app)}</span>
+                                        {app.status && (
+                                            <span
+                                                className="app-card-status"
+                                                // A status the enum no longer lists still shows,
+                                                // marked, rather than disappearing from the row.
+                                                data-stale={statuses.length > 0 && !statuses.includes(app.status) ? 'true' : undefined}
+                                            >
+                                                {statusLabel(app.status)}
+                                            </span>
+                                        )}
                                         {app.response?.fit_criteria?.level && (
                                             <FitBadge level={app.response.fit_criteria.level} />
                                         )}

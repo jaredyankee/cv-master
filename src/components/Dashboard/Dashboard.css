@@ -583,6 +583,31 @@
   line-height: 1.4;
 }
 
+/* Pushed right so it groups with the fit badge rather than being spread across
+   the row by the card's space-between. */
+.app-card-status {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+/* A stage the enum no longer lists — kept visible, but not presented as a
+   place the application can still be. */
+.app-card-status[data-stale='true'] {
+  color: var(--muted);
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+
 .app-card-meta {
   display: flex;
   flex-wrap: wrap;
@@ -642,6 +667,10 @@
   gap: 14px;
   margin-top: 12px;
 }
+
+/* Below the date and fit badge, not beside them: this one is a control, and
+   sitting it among the metadata would read as another label. */
+.detail-head .status-control { margin-top: 16px; }
 
 .meta-date {
   font-family: var(--mono);

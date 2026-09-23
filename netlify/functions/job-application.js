@@ -11,11 +11,20 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *                                   → { ready: true, data: Application }
  *
  * List (dashboard load):
- *   GET /job-application            → { applications: Application[] }   newest first
+ *   GET /job-application            → { applications: Application[], statuses: string[] }
+ *                                     applications newest first; statuses in pipeline order
  *
  * Save an edited built resume:
  *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
  *   body: { job_application }
+ *
+ * Move it along the user's lifecycle:
+ *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
+ *   body: { status }
+ *
+ * The two PUTs are separate paths on purpose. Editing the resume rewrites the
+ * deliverable; changing the status records what happened to it. A single
+ * handler taking both would let a status change carry a resume body.
  */
 export async function handler(event) {
     const cors = CORS(event);
@@ -48,9 +57,22 @@ export async function handler(event) {
             return json(400, { message: "Body is not valid JSON" });
         }
 
+        // Which write this is, decided by what the body carries. Sending both
+        // is a mistake worth naming rather than resolving by precedence.
+        const wantsStatus = body?.status !== undefined;
+        const wantsResume = body?.job_application !== undefined;
+        if (wantsStatus && wantsResume) {
+            return json(400, { message: "Send either job_application or status, not both" });
+        }
+        if (!wantsStatus && !wantsResume) {
+            return json(400, { message: "Body must carry job_application or status" });
+        }
+
         try {
-            const save = fnRegistry("job-application:PUT");
-            const result = await save(user.userId, params.id, body.job_application);
+            const save = fnRegistry(wantsStatus ? "job-application:STAT" : "job-application:PUT");
+            const result = wantsStatus
+                ? await save(user.userId, params.id, body.status)
+                : await save(user.userId, params.id, body.job_application);
             if (!result.ok) return json(result.error === "Application not found" ? 404 : 400, { message: result.error });
             return json(200, { ok: true, data: result.application });
         } catch (err) {
@@ -66,8 +88,8 @@ export async function handler(event) {
             return json(200, app ? { ready: true, data: app } : { ready: false });
         }
         const fn = fnRegistry("job-application:LIST");
-        const applications = await fn(user.userId);
-        return json(200, { applications });
+        // { applications, statuses }
+        return json(200, await fn(user.userId));
     } catch (err) {
         console.error(`Error ${params.id ? "polling" : "listing"} job-application:`, err);
         return json(500, { message: "Internal server error" });
