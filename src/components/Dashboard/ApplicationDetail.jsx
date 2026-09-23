@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import FitBadge from './FitBadge'
+import StatusControl from './StatusControl'
 import Progress from '../common/Progress'
 import CopyButton from '../common/CopyButton'
 import EditableSection from '../common/EditableSection'
@@ -251,8 +252,10 @@ function CoverLetter({ cl }) {
  *   application:   Application
  *   onBack()
  *   onSaveResume:  async (jobApplication) => void — omit for read-only
+ *   statuses:      string[] — the lifecycle stages, in order
+ *   onSetStatus:   async (status) => void — omit for read-only
  */
-export default function ApplicationDetail({ application, onBack, onSaveResume }) {
+export default function ApplicationDetail({ application, onBack, onSaveResume, statuses = [], onSetStatus }) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
     const state = analysisState(application)
 
@@ -271,6 +274,14 @@ export default function ApplicationDetail({ application, onBack, onSaveResume })
                     <span className="meta-date">Added {formatDate(createdAt)}</span>
                     {fit_criteria?.level && <FitBadge level={fit_criteria.level} />}
                 </div>
+                {/* The fit badge is the model's verdict; this is yours. They sit
+                    together because the pair is the answer to "where is this
+                    one" — but the status is the row you actually maintain. */}
+                <StatusControl
+                    value={application.status}
+                    statuses={statuses}
+                    onChange={onSetStatus}
+                />
             </header>
 
             {state === 'pending' && (
