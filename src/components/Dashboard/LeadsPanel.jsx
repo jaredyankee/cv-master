@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Progress from '../common/Progress'
 import SearchPreferencesForm from './SearchPreferencesForm'
 import { describePreferences, formatSalary } from '../../lib/searchPrefs'
+import { cleanSnippet } from '../../lib/snippet'
 import './LeadsPanel.css'
 
 const SOURCE_LABEL = {
@@ -161,6 +162,9 @@ const safeHref = url => (typeof url === 'string' && /^https:\/\//i.test(url) ? u
 
 function LeadCard({ lead, onDismiss, onStart }) {
     const href = safeHref(lead.url)
+    // Stored as the search returned it; cleaned only for display. See
+    // src/lib/snippet.js for why it is stripped rather than rendered.
+    const snippet = cleanSnippet(lead.snippet)
     const meta = [
         lead.company,
         SOURCE_LABEL[lead.source] ?? null,
@@ -183,7 +187,7 @@ function LeadCard({ lead, onDismiss, onStart }) {
                     <span className="lead-title">{lead.title || 'Untitled listing'}</span>
                 )}
                 {meta.length > 0 && <p className="lead-meta">{meta.join(' · ')}</p>}
-                {lead.snippet && <p className="lead-snippet">{lead.snippet}</p>}
+                {snippet && <p className="lead-snippet">{snippet}</p>}
                 {lead.disqualifiedFor && <p className="lead-reason">{lead.disqualifiedFor}</p>}
             </div>
             <div className="lead-buttons">
