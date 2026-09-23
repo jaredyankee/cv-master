@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import ResumeDumpPanel from './ResumeDumpPanel'
 import ApplicationsPanel from './ApplicationsPanel'
 import NewApplicationForm from './NewApplicationForm'
@@ -6,10 +6,19 @@ import LeadsPanel from './LeadsPanel'
 import ApplicationDetail from './ApplicationDetail'
 import RegenerateDialog from './RegenerateDialog'
 import CachedDumpChip from './CachedDumpChip'
+import ProfileDrawer from './ProfileDrawer'
 import './Dashboard.css'
 
 /**
- * Main interface after onboarding. Two screens, not one:
+ * Main interface after onboarding.
+ *
+ * The profile lives in a drawer that slides out from the top bar. It is edited
+ * now and then; listings and applications are used every session, so those two
+ * get the screen and the profile stays one click away. Mid-rebuild the order
+ * flips: there is no profile to search for, so the listings column shows the
+ * rebuild in progress instead, where it can't be missed.
+ *
+ * Two screens, not one:
  *
  *   list   — the resume dump beside the applications list
  *   focus  — one application, or the new-application form, full width with a
@@ -73,9 +82,12 @@ export default function Dashboard({
     // { mode: 'list' | 'new' | 'detail', id, lead } — `lead` is set when a new
     // application starts from a listing, so the form can carry its link.
     const [view, setView] = useState({ mode: 'list', id: null, lead: null })
-    // Which list panel a narrow viewport shows. Ignored by CSS above the breakpoint.
+    // Which list panel a narrow viewport shows: 'apps' | 'leads'. Ignored by
+    // CSS above the breakpoint.
     const [tab, setTab] = useState('apps')
     const [regenOpen, setRegenOpen] = useState(false)
+    const [drawerOpen, setDrawerOpen] = useState(false)
+    const closeDrawer = useCallback(() => setDrawerOpen(false), [])
 
     const isRegenerating = dumpState !== 'READY'
 
@@ -133,12 +145,35 @@ export default function Dashboard({
         else showList()
     }
 
+    // "Jared's profile" when the dump has a name, so the button reads as yours.
+    const firstName = String(resumeDump?.contact?.name ?? '').trim().split(/\s+/)[0]
+    const profileLabel = firstName ? `${firstName}’s profile` : 'Your profile'
+    const liveLeads = (leads?.leads ?? []).filter(l => !l.disqualifiedFor).length
+
     const topbar = (
-        <header className="topbar">
+        // Inert while the drawer is open: the backdrop covers it, and nothing
+        // behind a modal panel should be reachable by Tab either.
+        <header className="topbar" inert={drawerOpen}>
             <span className="topbar-brand">CV&nbsp;Master</span>
+            {/* Hidden mid-rebuild: the profile is empty on purpose then, and
+                the listings column already shows what is going on. */}
+            {!isRegenerating && (
+                <button
+                    type="button"
+                    className="profile-trigger"
+                    onClick={() => setDrawerOpen(true)}
+                    aria-haspopup="dialog"
+                    aria-expanded={drawerOpen}
+                    // The label is hidden on the narrowest phones; this keeps
+                    // the icon-only button named.
+                    aria-label={profileLabel}
+                >
+                    <ProfileGlyph />
+                    <span className="profile-trigger-label">{profileLabel}</span>
+                </button>
+            )}
             <span className="topbar-user">{user?.email ?? resumeDump?.contact?.name}</span>
             <nav className="topbar-nav">
-                <button type="button" className="link-btn" onClick={onEditProfile}>Edit profile</button>
                 {onSignOut && (
                     <button type="button" className="link-btn" onClick={onSignOut}>Sign out</button>
                 )}
@@ -146,12 +181,39 @@ export default function Dashboard({
         </header>
     )
 
+    // Rendered on every screen, so the profile is one click away from an
+    // application's detail page too, not only from the list.
+    const drawer = !isRegenerating && (
+        <ProfileDrawer
+            open={drawerOpen}
+            onClose={closeDrawer}
+            title="Profile"
+            actions={onEditProfile && (
+                <button
+                    type="button" className="link-btn"
+                    onClick={() => { setDrawerOpen(false); onEditProfile() }}
+                >
+                    Review suggestions
+                </button>
+            )}
+        >
+            <ResumeDumpPanel
+                dump={resumeDump}
+                answeredQuestions={answeredQuestions}
+                onSave={onSaveDump}
+                dumpState={dumpState}
+                header={dumpHeader}
+                onResume={onResumeRegeneration}
+            />
+        </ProfileDrawer>
+    )
+
     // ── focus screens: one job at a time, no dump panel ──────────
     if (view.mode === 'new' || selected) {
         return (
             <div className="shell">
                 {topbar}
-                <main className="focus">
+                <main className="focus" inert={drawerOpen}>
                     {view.mode === 'new'
                         ? <NewApplicationForm onSubmit={handleCreate} onCancel={showList} lead={view.lead} />
                         : <ApplicationDetail
@@ -162,20 +224,20 @@ export default function Dashboard({
                             onSetStatus={onSetStatus && (s => onSetStatus(selected.id, s))}
                           />}
                 </main>
+                {drawer}
             </div>
         )
     }
 
-    // ── list screen: dump beside applications ────────────────────
-    // On a phone the two panels can't sit side by side, and stacking them puts
-    // the whole dump above the applications — a lot of scrolling to reach the
-    // part you act on. So narrow viewports get tabs instead. Both panels stay
-    // mounted and CSS hides one, which keeps scroll position and any open
-    // section editor alive when switching.
+    // ── list screen: listings beside applications ────────────────
+    // On a phone the two columns become tabs rather than a stack, so the one
+    // you act on isn't a long scroll below the other. Both stay mounted and CSS
+    // hides one, which keeps scroll position and any open form alive across a
+    // switch.
     return (
         <div className="shell">
             {topbar}
-            <div className="list-screen" data-tab={tab}>
+            <div className="list-screen" data-tab={tab} inert={drawerOpen}>
                 <nav className="mobile-tabs" role="tablist" aria-label="Dashboard panels">
                     <button
                         type="button" role="tab" id="tab-apps"
@@ -187,32 +249,28 @@ export default function Dashboard({
                         {applications.length > 0 && <span className="count">{applications.length}</span>}
                     </button>
                     <button
-                        type="button" role="tab" id="tab-profile"
-                        aria-selected={tab === 'profile'} aria-controls="panel-profile"
-                        className={`mobile-tab${tab === 'profile' ? ' is-active' : ''}`}
-                        onClick={() => selectTab('profile')}
+                        type="button" role="tab" id="tab-leads"
+                        aria-selected={tab === 'leads'} aria-controls="panel-leads"
+                        className={`mobile-tab${tab === 'leads' ? ' is-active' : ''}`}
+                        onClick={() => selectTab('leads')}
                     >
-                        Profile
+                        {isRegenerating ? 'Profile' : 'Listings'}
+                        {!isRegenerating && liveLeads > 0 && <span className="count">{liveLeads}</span>}
                     </button>
                 </nav>
 
                 <div className="split">
-                    <aside className="split-dump" id="panel-profile" role="tabpanel" aria-labelledby="tab-profile">
-                        <ResumeDumpPanel
-                            dump={resumeDump}
-                            answeredQuestions={answeredQuestions}
-                            onSave={onSaveDump}
-                            dumpState={dumpState}
-                            header={dumpHeader}
-                            onResume={onResumeRegeneration}
-                        />
-                    </aside>
-                    <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
-                        {/* Above the list, and never blocking it: a search runs in
-                            the background and this panel shows its progress while
-                            every button below stays live. Hidden mid-rebuild, when
-                            there is no profile for a search to be about. */}
-                        {!isRegenerating && (
+                    <section className="split-leads" id="panel-leads" role="tabpanel" aria-labelledby="tab-leads">
+                        {isRegenerating ? (
+                            // The rebuild in progress, where it can't be missed:
+                            // a search needs a profile, and there isn't one.
+                            <ResumeDumpPanel
+                                dump={resumeDump}
+                                dumpState={dumpState}
+                                header={dumpHeader}
+                                onResume={onResumeRegeneration}
+                            />
+                        ) : (
                             <LeadsPanel
                                 state={leads}
                                 form={leadsForm}
@@ -225,6 +283,8 @@ export default function Dashboard({
                                 onStart={showNewFrom}
                             />
                         )}
+                    </section>
+                    <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
                         <ApplicationsPanel
                             applications={applications}
                             onNew={showNew}
@@ -240,6 +300,8 @@ export default function Dashboard({
                 </div>
             </div>
 
+            {drawer}
+
             {regenOpen && (
                 <RegenerateDialog
                     onConfirm={handleRegenerate}
@@ -249,5 +311,19 @@ export default function Dashboard({
                 />
             )}
         </div>
+    )
+}
+
+/**
+ * A page with lines of text — "your profile document" — drawn inline so it
+ * inherits the text colour in both themes rather than needing an asset per
+ * theme.
+ */
+function ProfileGlyph() {
+    return (
+        <svg className="profile-glyph" width="18" height="20" viewBox="0 0 18 20" aria-hidden="true" focusable="false">
+            <rect x="1" y="1" width="16" height="18" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M5 6h8M5 9.5h8M5 13h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
     )
 }
