@@ -21,7 +21,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  *   Authorization — Bearer <Neon Auth JWT>
  *   x-api-key     — optional Anthropic key; falls back to the user's stored key
  * Body:
- *   { id: uuid (client-generated), jobDescription, notes?, questions?: string[] }
+ *   { id: uuid (client-generated), jobDescription, notes?, questions?: string[], leadId? }
+ *
+ *   leadId — the job lead this application was started from, if any. Linked
+ *            once the row exists; see createJobApplication.
  */
 export async function handler(event) {
     const cors = CORS(event);
@@ -90,6 +93,9 @@ export async function handler(event) {
             jobDescription: body.jobDescription,
             notes:          body.notes ?? "",
             questions:      Array.isArray(body.questions) ? body.questions : [],
+            // Only a UUID gets through; anything else is dropped rather than
+            // handed to a query.
+            leadId:         UUID.test(body.leadId ?? "") ? body.leadId : null,
         }, provider);
         if (!result?.ok) console.error("job-application-background failed:", result?.error);
     } catch (err) {

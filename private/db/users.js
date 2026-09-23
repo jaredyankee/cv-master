@@ -95,14 +95,55 @@ const ciphertextFor = (row, provider) => {
 export const getKeyStatus = async (user_id) => {
     const row = await keyRow(user_id)
     const provider = normalizeProvider(row?.api_provider)
+    // Model providers only. The search key shares this column but is not
+    // something the picker can be set to, so listing it here would mark a
+    // provider configured that the user never gave a key for.
     const configured = Object.entries(row?.api_keys ?? {})
-        .filter(([, v]) => Boolean(v))
+        .filter(([k, v]) => Boolean(v) && k !== SEARCH_PROVIDER)
         .map(([k]) => k)
 
     if (row?.api_key_encrypted && !configured.includes(DEFAULT_PROVIDER)) {
         configured.push(DEFAULT_PROVIDER)
     }
     return { provider, configured }
+}
+
+/* ── Search key ──────────────────────────────────────────────────
+ *
+ * Perplexity searches for listings; it never produces structured output, so
+ * it is not one of PROVIDERS and must never reach the picker — choosing it
+ * for a resume build would be choosing something that cannot do the job.
+ *
+ * It shares the api_keys jsonb, which is keyed by name and needs no
+ * migration, but it gets its own accessors rather than reusing saveApiKey.
+ * That one normalizes its argument, so an unrecognised name silently becomes
+ * 'anthropic' — saving a search key through it would overwrite the user's
+ * Claude key and switch the provider their resumes are built with.
+ */
+export const SEARCH_PROVIDER = 'perplexity'
+
+/** Stores the search key. Deliberately leaves api_provider alone. */
+export const saveSearchKey = async (user_id, plainApiKey) => {
+    const encrypted = encrypt(plainApiKey)
+    await sql`
+        INSERT INTO users (id, api_keys)
+        VALUES (${user_id}, ${JSON.stringify({ [SEARCH_PROVIDER]: encrypted })}::jsonb)
+        ON CONFLICT (id) DO UPDATE SET
+            api_keys = users.api_keys || EXCLUDED.api_keys
+    `
+}
+
+/** The decrypted search key, or null when the user hasn't given one. */
+export const getSearchKey = async (user_id) => {
+    const row = await keyRow(user_id)
+    const ciphertext = row?.api_keys?.[SEARCH_PROVIDER]
+    return ciphertext ? decrypt(ciphertext) : null
+}
+
+/** Whether a search key is on file, without decrypting it. */
+export const hasSearchKey = async (user_id) => {
+    const row = await keyRow(user_id)
+    return Boolean(row?.api_keys?.[SEARCH_PROVIDER])
 }
 
 /**

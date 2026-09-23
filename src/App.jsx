@@ -1,5 +1,6 @@
 import { appRequest } from "./api"
 import { pollUntil } from "./lib/poll"
+import { runOutcome } from "./lib/searchRun"
 import { authClient, AUTH_CONFIGURED } from "./auth"
 import { useEffect, useState } from "react"
 import AuthForm from "./components/Auth/AuthForm"
@@ -18,6 +19,42 @@ const makeId = () =>
 // spent inside the window has gone down.
 const DUMP_POLL_BUDGET_MS        = 3 * 60 * 1000
 const APPLICATION_POLL_BUDGET_MS = 5 * 60 * 1000
+const LEADS_POLL_BUDGET_MS       = 5 * 60 * 1000
+
+/** The leads panel's state, or null if it couldn't be read. */
+async function fetchLeadState() {
+    try {
+        const res = await appRequest("/job-search", "GET")
+        if (!res.ok) return null
+        const body = await res.json()
+        return { ...body, loaded: true }
+    } catch (err) {
+        console.error("Could not load listings", err)
+        return null
+    }
+}
+
+/**
+ * Polls until a search finishes, or until it's clear the server didn't start
+ * one. See src/lib/searchRun.js for why "finished" can't simply be
+ * `running === false`.
+ *
+ * `before` is run.startedAt as it was before asking. Pass undefined to accept
+ * whichever run is current — resuming a watch after a reload mid-search.
+ *
+ * @returns {Promise<{ state, outcome: 'done'|'skipped' } | undefined>}
+ *          undefined when the budget ran out with the run still going
+ */
+async function watchLeadSearch(before, onUpdate) {
+    const askedAt = Date.now()
+    return pollUntil(LEADS_POLL_BUDGET_MS, async () => {
+        const state = await fetchLeadState()
+        if (!state) return undefined
+        onUpdate(state)
+        const outcome = runOutcome(before, state.run, Date.now() - askedAt)
+        return outcome === 'waiting' ? undefined : { state, outcome }
+    })
+}
 
 /**
  * Everything a signed-in user sees. Mounted with key={user.id}, so signing out
@@ -32,6 +69,11 @@ function Workspace({ user, onSignOut }) {
     // defines them. Empty until the list loads, which is what makes the status
     // control read-only rather than offering stages that may not exist.
     const [statuses, setStatuses]                     = useState([])
+    // Listings. Loaded after the dashboard is on screen, never before it: a
+    // slow read here must not hold up the applications list.
+    const [leads, setLeads]             = useState(null)   // { leads, preferences, run, hasKey, loaded }
+    const [leadsForm, setLeadsForm]     = useState(null)   // { preferences, seeded } while the form is open
+    const [leadsError, setLeadsError]   = useState(null)
     const [isLoading, setIsLoading]                   = useState(false)
 
     // Dump lifecycle. `hasDump` is the row's existence, which is the only
@@ -120,6 +162,16 @@ function Workspace({ user, onSignOut }) {
                 }
 
                 if (!cancelled) setView('dashboard')
+
+                // Listings load after the dashboard is up, so a slow read here
+                // never delays it. A reload mid-search picks the watch back up.
+                fetchLeadState().then(state => {
+                    if (cancelled || !state) return
+                    setLeads(state)
+                    if (state.run?.running) {
+                        watchLeadSearch(undefined, next => { if (!cancelled) setLeads(next) })
+                    }
+                })
             } catch (err) {
                 console.error("Could not check for an existing resume dump", err)
                 if (!cancelled) setView('onboarding')
@@ -131,7 +183,7 @@ function Workspace({ user, onSignOut }) {
     }, [])
 
 
-    async function handleDumpSubmit(dumpText, apiKey, chosenProvider) {
+    async function handleDumpSubmit(dumpText, apiKey, chosenProvider, searchKey = '') {
         setIsLoading(true)
         setDumpError(null)
         try {
@@ -140,7 +192,13 @@ function Workspace({ user, onSignOut }) {
             // falls back to the stored key, so don't send an empty header.
             await appRequest("/resume-dump-background", "POST",
                 apiKey ? { 'X-Api-Key': apiKey } : null,
-                { resume_dump: dumpText, provider: chosenProvider }
+                {
+                    resume_dump: dumpText,
+                    provider: chosenProvider,
+                    // In the body, not a header: X-Api-Key is already this
+                    // request's model key. See resume-dump-background.
+                    ...(searchKey ? { search_key: searchKey } : {}),
+                }
             );
 
             // Poll until AI processing completes, backing off as it drags on
@@ -322,6 +380,126 @@ function Workspace({ user, onSignOut }) {
             setResumeDump({ ...finalDump, answers })
         }
         setView('dashboard')
+
+        // The first listing search starts by itself once the profile is
+        // finalized — in the background, after the dashboard is up, so an
+        // application can be started while it runs. Not awaited.
+        kickoffFirstSearch()
+    }
+
+    /* ── Listings ───────────────────────────────────────────── */
+
+    async function kickoffFirstSearch() {
+        const state = await fetchLeadState()
+        if (!state) return
+        setLeads(state)
+        // The server skips an automatic run that has already happened, but
+        // checking here too saves a background invocation and a 45-second
+        // wait to discover it. No key means nothing to run; the panel asks.
+        if (state.hasKey && !state.run?.hasRun && !state.run?.running) {
+            startLeadSearch(state.run?.startedAt ?? null, { auto: true })
+        }
+    }
+
+    /**
+     * Starts a search and watches it without blocking anything.
+     *
+     * `before` is passed in rather than read from state: kickoffFirstSearch
+     * calls this in the same tick as it sets that state, so reading `leads`
+     * here would see the value from before the fetch.
+     */
+    async function startLeadSearch(before, { auto = false } = {}) {
+        setLeadsError(null)
+        // Show it running now rather than after the first poll — three seconds
+        // of a button that did nothing reads as a click that didn't register.
+        // startedAt is cleared because until the server reports our run it
+        // still holds the previous one's, and the progress timer would count
+        // from then. The watch compares against `before`, not this.
+        setLeads(prev => (prev ? { ...prev, run: { ...prev.run, running: true, startedAt: null } } : prev))
+
+        try {
+            const res = await appRequest("/job-search-background", "POST", null, { auto })
+            if (!res.ok) throw new Error(`Search request failed (${res.status})`)
+        } catch (err) {
+            setLeadsError(err.message)
+            setLeads(prev => (prev ? { ...prev, run: { ...prev.run, running: false } } : prev))
+            return
+        }
+
+        // Until the server shows our run, it is still reporting the previous
+        // one — finished — and taking that at face value would flip the button
+        // back to enabled for the first few seconds of a search.
+        const result = await watchLeadSearch(before, next => {
+            const ours = Boolean(next.run?.startedAt) && next.run.startedAt !== before
+            setLeads(ours ? next : { ...next, run: { ...next.run, running: true, startedAt: null } })
+        })
+        if (!result) {
+            setLeadsError("The search is taking longer than usual. It will keep going — check back in a few minutes.")
+            return
+        }
+        if (result.outcome === 'skipped') {
+            // Put the displayed state back; the optimistic "running" was ours.
+            setLeads({ ...result.state, run: { ...result.state.run, running: false } })
+            if (!auto) setLeadsError("The search didn't start. Check your job titles and Perplexity key in Preferences.")
+        }
+    }
+
+    async function handleSearchLeads() {
+        // No titles means nothing to search for — the server would skip it
+        // after a 45-second wait. Go straight to the form instead.
+        if (!leads?.preferences?.titles?.length) return handleOpenLeadsForm()
+        startLeadSearch(leads.run?.startedAt ?? null, { auto: false })
+    }
+
+    async function handleOpenLeadsForm() {
+        setLeadsError(null)
+        try {
+            const res = await appRequest("/job-search?form=1", "GET")
+            if (!res.ok) throw new Error(`Could not load preferences (${res.status})`)
+            const body = await res.json()
+            setLeadsForm({ preferences: body.preferences, seeded: Boolean(body.seeded) })
+        } catch (err) {
+            setLeadsError(err.message)
+        }
+    }
+
+    /** Throws on failure so the form stays open with the user's input. */
+    async function handleSaveLeadPreferences(preferences, searchKey) {
+        const res = await appRequest("/job-search", "PUT", null, {
+            preferences,
+            ...(searchKey ? { searchKey } : {}),
+        })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        setLeads(prev => ({
+            leads: prev?.leads ?? [],
+            ...prev,
+            preferences: body.preferences,
+            run: body.run,
+            hasKey: body.hasKey,
+            loaded: true,
+        }))
+        setLeadsForm(null)
+
+        // The first search the user was promised. Finishing onboarding without
+        // a key means it couldn't run then; saving one is when it can.
+        if (body.hasKey && !body.run?.hasRun && !body.run?.running) {
+            startLeadSearch(body.run?.startedAt ?? null, { auto: true })
+        }
+    }
+
+    async function handleDismissLead(id) {
+        try {
+            const res = await appRequest(`/job-search?dismiss=${encodeURIComponent(id)}`, "PUT", null, {})
+            if (!res.ok) throw new Error(`Could not dismiss (${res.status})`)
+            setLeads(prev => (prev ? { ...prev, leads: prev.leads.filter(l => l.id !== id) } : prev))
+        } catch (err) {
+            setLeadsError(err.message)
+        }
     }
 
     function patchApplication(id, patch) {
@@ -370,6 +548,9 @@ function Workspace({ user, onSignOut }) {
 
             if (ready) {
                 patchApplication(id, { ...ready, error: null })
+                // Started from a listing: the server linked the lead once the
+                // row existed, so re-read the panel to mark it started.
+                if (input.leadId) fetchLeadState().then(state => { if (state) setLeads(state) })
                 return
             }
             throw new Error("Timed out waiting for the analysis. It may still finish; reload to check.")
@@ -426,6 +607,14 @@ function Workspace({ user, onSignOut }) {
                 onSaveResume={handleSaveResume}
                 statuses={statuses}
                 onSetStatus={handleSetStatus}
+                leads={leads}
+                leadsForm={leadsForm}
+                leadsError={leadsError}
+                onOpenLeadsForm={handleOpenLeadsForm}
+                onCloseLeadsForm={() => setLeadsForm(null)}
+                onSaveLeadPreferences={handleSaveLeadPreferences}
+                onSearchLeads={handleSearchLeads}
+                onDismissLead={handleDismissLead}
                 user={user}
                 onSignOut={onSignOut}
                 dumpState={dumpState}
@@ -444,6 +633,7 @@ function Workspace({ user, onSignOut }) {
         <OnboardingForm
             onSubmit={handleDumpSubmit}
             isLoading={isLoading}
+            hasSearchKey={leads?.hasKey ?? false}
             mode={hasDump ? dumpState : 'FIRST'}
             initialText={dumpState === 'REVISE' ? sourceText : ''}
             provider={provider}

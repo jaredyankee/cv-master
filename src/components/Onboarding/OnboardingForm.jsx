@@ -32,8 +32,10 @@ const COPY = {
  * framing, and in REVISE mode the box opens on what the user wrote last time.
  *
  * Props:
- *   onSubmit(dumpText, apiKey, provider) — apiKey is '' when one is already
- *              stored for that provider, which tells the server to use it
+ *   onSubmit(dumpText, apiKey, provider, searchKey) — apiKey is '' when one
+ *              is already stored for that provider, which tells the server to
+ *              use it; searchKey is '' when none was entered
+ *   hasSearchKey: a Perplexity key is already on file
  *   isLoading:   boolean
  *   mode:        'FIRST' | 'NEW' | 'REVISE'
  *   initialText: string — prefill, for REVISE
@@ -63,9 +65,11 @@ export default function OnboardingForm({
   feedback = null,
   isDone,
   onToggleDone,
+  hasSearchKey = false,
 }) {
   const [dumpText, setDumpText] = useState(initialText)
   const [apiKey, setApiKey]     = useState('')
+  const [searchKey, setSearchKey] = useState('')
   const [provider, setProvider] = useState(initialProvider || DEFAULT_PROVIDER)
   const [showKey, setShowKey]   = useState(false)
   const [startedAt, setStartedAt] = useState(null)
@@ -82,7 +86,7 @@ export default function OnboardingForm({
     e.preventDefault()
     if (!canSubmit) return
     setStartedAt(Date.now())
-    onSubmit(dumpText, apiKey.trim(), provider)
+    onSubmit(dumpText, apiKey.trim(), provider, searchKey.trim())
   }
 
   // Only REVISE gets the checklist. Starting over discards the text those
@@ -213,6 +217,31 @@ export default function OnboardingForm({
                 ? `Your saved ${info.label} key is used unless you enter a different one. Stored encrypted, never logged.`
                 : <>Stored encrypted. Never logged. Get one from{' '}
                     <a href={info.keysUrl} target="_blank" rel="noreferrer">{info.keysLabel}</a>.</>}
+            </span>
+          </div>
+
+          {/* Optional, and never required to submit: the profile is the point of
+              this screen. With a key here, the first listing search starts by
+              itself once the review is finalized; without one, the dashboard
+              offers to set it up later. */}
+          <div className="field">
+            <label htmlFor="searchKey" className="field-label">
+              Perplexity API key
+              <span className="field-optional">Optional</span>
+            </label>
+            <input
+              id="searchKey"
+              type={showKey ? 'text' : 'password'}
+              className="api-key-input"
+              value={searchKey}
+              onChange={e => setSearchKey(e.target.value)}
+              placeholder={hasSearchKey ? 'Using your saved Perplexity key' : 'pplx-…'}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <span className="field-hint small">
+              Finds job listings that match your profile once it's ready. Searches are
+              billed to this key. Stored encrypted, never logged.
             </span>
           </div>
 
