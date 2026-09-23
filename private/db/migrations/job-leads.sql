@@ -7,6 +7,9 @@
 -- poor fit. Search should never spend model tokens on your behalf.
 --
 -- Safe to run more than once.
+--
+-- users.id is a uuid (the Neon Auth user id), so every user_id here is too —
+-- a foreign key between mismatched types is refused outright.
 
 /* ── Search preferences ──────────────────────────────────────────
  *
@@ -21,7 +24,7 @@
  * nothing to do with the profile text.
  */
 CREATE TABLE IF NOT EXISTS job_search_preferences (
-    user_id     TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
 
     -- 'remote' | 'hybrid' | 'onsite' | 'any'. Plain text, not an enum: this
     -- one is a user preference rather than a state machine, and the set is
@@ -52,7 +55,7 @@ CREATE TABLE IF NOT EXISTS job_search_preferences (
  */
 CREATE TABLE IF NOT EXISTS job_leads (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
     -- Canonicalised: tracking parameters stripped, host lowercased, fragment
     -- dropped. This is the dedup key, so a re-run doesn't re-show a listing.

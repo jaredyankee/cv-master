@@ -121,9 +121,15 @@ export const savePreferences = async (userId, input, searchKey) => {
     }
 }
 
+// Lead ids are uuids, and Postgres throws on anything that isn't one rather
+// than matching nothing — so an id straight off the query string is checked
+// first, and a malformed one is simply not found instead of a 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const dismiss = async (userId, id) => {
     if (!userId) return { ok: false, error: "User id is missing" }
     if (!id) return { ok: false, error: "Lead id is missing" }
+    if (!UUID.test(id)) return { ok: false, error: "Lead not found" }
     const row = await dismissLead(userId, id)
     if (!row) return { ok: false, error: "Lead not found" }
     return { ok: true, lead: shapeLead(row) }
