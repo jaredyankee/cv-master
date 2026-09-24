@@ -132,6 +132,50 @@ export function companyFromUrl(url) {
         .replace(/\b\w/g, c => c.toUpperCase()) || null
 }
 
+/**
+ * What a posting URL looks like on each board — the part after the host.
+ *
+ * Search returns a mix of single postings and a company's whole job board,
+ * and they look alike in results: a board page's title is "Jobs at Acme" and
+ * its snippet is a fragment of the table of every opening. A board is not a
+ * listing. These hosts have a fixed URL grammar, so which one a result is can
+ * be read off the path.
+ */
+const POSTING_PATHS = {
+    // /acme/jobs/6012345, or an embedded application form carrying a token.
+    greenhouse: u => /^\/[^/]+\/jobs\/\d+/.test(u.pathname)
+        || (/^\/embed\/job_app/.test(u.pathname) && u.searchParams.has('token')),
+    // /acme/<uuid>, optionally /apply after it.
+    lever: u => /^\/[^/]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(u.pathname),
+    ashby: u => /^\/[^/]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(u.pathname),
+    // /acme/j/ABC123DEF
+    workable: u => /\/j\/[A-Za-z0-9]+/.test(u.pathname),
+    // /Acme/743999812345678-backend-engineer
+    smartrecruiters: u => /^\/[^/]+\/\d{6,}/.test(u.pathname),
+}
+
+/**
+ * Whether a URL is one job, a company's board of jobs, or can't be told.
+ *
+ * 'unknown' covers a company's own careers site and the boards whose URLs
+ * carry no structure worth trusting. It is treated as a posting: the rule
+ * everywhere in this file is that only a stated fact rules a lead out, and a
+ * URL we can't parse states nothing.
+ *
+ * @returns {'posting'|'board'|'unknown'}
+ */
+export function postingKind(url) {
+    const canonical = canonicalUrl(url)
+    if (!canonical) return 'unknown'
+    const u = new URL(canonical)
+    const ats = atsFor(u.hostname)
+    const test = ats && POSTING_PATHS[ats.source]
+    if (!test) return 'unknown'
+    return test(u) ? 'posting' : 'board'
+}
+
+export const BOARD_REASON = "A company's job board, not a single posting"
+
 /* ── What the text states ────────────────────────────────────── */
 
 const ONSITE_NEGATIONS = [
@@ -321,6 +365,11 @@ export function normalizePreferences(input) {
  * @returns {string|null}
  */
 export function disqualify(lead, prefs = {}) {
+    // First, because it isn't a preference: a board is not a listing at all.
+    // Set aside rather than dropped — "Samsara is hiring" can still be worth
+    // a look, and a filter you can't see is one you can't catch being wrong.
+    if (postingKind(lead?.url ?? '') === 'board') return BOARD_REASON
+
     const text = `${lead?.title ?? ''} ${lead?.snippet ?? ''}`
     const wanted = prefs.arrangement
 
