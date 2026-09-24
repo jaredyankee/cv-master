@@ -119,6 +119,26 @@ export const updateJobApplicationStatus = async (user_id, id, status) => {
 }
 
 /**
+ * Removes one application for good. A lead it was started from keeps its row:
+ * job_leads.job_application_id is ON DELETE SET NULL, so the listing goes back
+ * to being one you haven't applied to.
+ *
+ * Scoped to the owner. Returns null when the application doesn't exist or
+ * isn't theirs.
+ *
+ * @param {string} user_id
+ * @param {string} id
+ */
+export const deleteJobApplication = async (user_id, id) => {
+    const [row] = await sql`
+        DELETE FROM job_applications
+        WHERE id = ${id} AND user_id = ${user_id}
+        RETURNING id
+    `
+    return row ?? null
+}
+
+/**
  * The labels of the job_application_status enum, in their declared order.
  *
  * Read from Postgres rather than written out here. The enum lives in the

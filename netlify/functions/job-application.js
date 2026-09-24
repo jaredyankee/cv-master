@@ -4,7 +4,7 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
 
 /**
  * @fn job-application
- * GET, authenticated. The user comes from the bearer token.
+ * GET, PUT and DELETE, authenticated. The user comes from the bearer token.
  *
  * Poll (after POST /job-application-background):
  *   GET /job-application?id=<uuid>  → { ready: false }
@@ -22,6 +22,10 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
  *   body: { status }
  *
+ * Delete it:
+ *   DELETE /job-application?id=<uuid> → { ok: true, id }
+ *                                     404 when it doesn't exist or isn't theirs
+ *
  * The two PUTs are separate paths on purpose. Editing the resume rewrites the
  * deliverable; changing the status records what happened to it. A single
  * handler taking both would let a status change carry a resume body.
@@ -33,7 +37,7 @@ export async function handler(event) {
     const json = (statusCode, body) => ({ statusCode, headers: cors, body: JSON.stringify(body) });
 
     const method = event.httpMethod;
-    if (method !== "GET" && method !== "PUT") {
+    if (method !== "GET" && method !== "PUT" && method !== "DELETE") {
         return json(405, { message: "Method not allowed" });
     }
 
@@ -46,6 +50,19 @@ export async function handler(event) {
     }
 
     const params = event.queryStringParameters ?? {};
+
+    if (method === "DELETE") {
+        if (!params.id) return json(400, { message: "id is required" });
+        try {
+            const fn = fnRegistry("job-application:DEL");
+            const result = await fn(user.userId, params.id);
+            if (!result.ok) return json(result.error === "Application not found" ? 404 : 400, { message: result.error });
+            return json(200, result);
+        } catch (err) {
+            console.error("Error deleting job-application:", err);
+            return json(500, { message: "Internal server error" });
+        }
+    }
 
     if (method === "PUT") {
         if (!params.id) return json(400, { message: "id is required" });

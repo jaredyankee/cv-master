@@ -29,7 +29,7 @@ export const CORS = (event, page = null) => {
 
     const cors = {
         ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': headers['access-control-request-headers'] || 'Content-Type, Authorization, X-Api-Key',
         'Content-Type': 'application/json',
         'Vary': 'Origin',

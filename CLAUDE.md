@@ -283,6 +283,12 @@ The row is written only once the analysis exists, so `fit_level IS NULL` never
 appears. `job_application_status` is the user's lifecycle (draft → applied → …),
 not a processing state.
 
+`DELETE /job-application?id=…` removes one for good (no soft delete). A lead it
+was started from is unlinked by `ON DELETE SET NULL` and shows as not applied
+to again. The UI never offers delete while the analysis is running: the row
+doesn't exist yet, so the delete would miss and the background function would
+write it anyway. A 404 on delete counts as done client-side.
+
 ## Context-only entries
 
 Any entry in `experience`, `freelance` or `projects` can carry

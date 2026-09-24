@@ -10,6 +10,7 @@ import { statusLabel } from '../../lib/status'
  *   applications: Application[]
  *   onNew()
  *   onSelect(id)
+ *   onDelete(app)  — opens the confirm; omit to offer no delete
  *   disabledReason: string | null — why a Job Application can't be started
  *                   right now. Existing ones stay open and readable.
  *   statuses:       string[] — used only to tell a live stage from a stale one
@@ -18,7 +19,7 @@ import { statusLabel } from '../../lib/status'
  * "who haven't I heard back from" is the job this serves; editing in place
  * would put a dropdown on every row for something done once per application.
  */
-export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null, statuses = [] }) {
+export default function ApplicationsPanel({ applications = [], onNew, onSelect, onDelete, disabledReason = null, statuses = [] }) {
     const blocked = Boolean(disabledReason)
 
     return (
@@ -64,8 +65,10 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                 <ul className="app-list">
                     {applications.map(app => {
                         const state = analysisState(app)
+                        // Nothing to delete until the analysis writes the row.
+                        const deletable = Boolean(onDelete) && state !== 'pending'
                         return (
-                            <li key={app.id}>
+                            <li key={app.id} className={`app-item${deletable ? ' has-delete' : ''}`}>
                                 <button type="button" className="app-card" onClick={() => onSelect(app.id)}>
                                     <span className="app-card-top">
                                         <span className="app-card-title">{applicationLabel(app)}</span>
@@ -103,11 +106,36 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                                         )}
                                     </span>
                                 </button>
+                                {/* A sibling of the card, not inside it: a button
+                                    can't hold another button. */}
+                                {deletable && (
+                                    <button
+                                        type="button"
+                                        className="app-card-delete"
+                                        onClick={() => onDelete(app)}
+                                        aria-label={`Delete ${applicationLabel(app)}`}
+                                        title="Delete"
+                                    >
+                                        <TrashGlyph />
+                                    </button>
+                                )}
                             </li>
                         )
                     })}
                 </ul>
             )}
         </div>
+    )
+}
+
+/** Drawn inline so it takes the text colour in both themes. */
+function TrashGlyph() {
+    return (
+        <svg width="15" height="16" viewBox="0 0 15 16" aria-hidden="true" focusable="false">
+            <path
+                d="M1.5 3.5h12M5.5 3.5V2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1.5M3 3.5l.7 10.1a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L12 3.5M6 6.5v5M9 6.5v5"
+                fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"
+            />
+        </svg>
     )
 }

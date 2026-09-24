@@ -7,6 +7,7 @@ import ApplicationDetail from './ApplicationDetail'
 import RegenerateDialog from './RegenerateDialog'
 import CachedDumpChip from './CachedDumpChip'
 import ProfileDrawer from './ProfileDrawer'
+import DeleteApplicationDialog from './DeleteApplicationDialog'
 import './Dashboard.css'
 
 /**
@@ -35,6 +36,9 @@ import './Dashboard.css'
  *   onSaveResume(id, ja)   — optional; persists an edited built resume
  *   statuses               — string[] — the lifecycle stages, in order
  *   onSetStatus(id, s)     — optional; moves one application along the lifecycle
+ *   onDeleteApplication(id) — optional; async, throws on failure. Offered on
+ *                            every finished or failed application, never on
+ *                            one still being analysed
  *   user                   — { name, email } from the auth session (optional)
  *   onSignOut()            — optional; renders a Sign out button when provided
  *   dumpState              — 'READY' | 'NEW' | 'REVISE'
@@ -60,6 +64,7 @@ export default function Dashboard({
     onSaveResume,
     statuses = [],
     onSetStatus,
+    onDeleteApplication,
     user = null,
     onSignOut,
     dumpState = 'READY',
@@ -88,6 +93,8 @@ export default function Dashboard({
     const [regenOpen, setRegenOpen] = useState(false)
     const [drawerOpen, setDrawerOpen] = useState(false)
     const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+    // The application waiting on "are you sure", from the list or its page.
+    const [deletingId, setDeletingId] = useState(null)
 
     const isRegenerating = dumpState !== 'READY'
 
@@ -138,6 +145,27 @@ export default function Dashboard({
         setTab(next)
         window.scrollTo({ top: 0 })
     }
+
+    // Offered on every screen an application appears, so the dialog is too.
+    const deleting = deletingId ? applications.find(a => a.id === deletingId) ?? null : null
+    const askDelete = onDeleteApplication ? (app => setDeletingId(app.id)) : null
+
+    async function confirmDelete() {
+        const id = deletingId
+        await onDeleteApplication(id)
+        setDeletingId(null)
+        // Deleted from its own page: there is nothing left to show there.
+        if (view.mode === 'detail' && view.id === id) showList()
+    }
+
+    const deleteDialog = deleting && (
+        <DeleteApplicationDialog
+            application={deleting}
+            fromListing={(leads?.leads ?? []).some(l => l.applicationId === deleting.id)}
+            onConfirm={confirmDelete}
+            onCancel={() => setDeletingId(null)}
+        />
+    )
 
     function handleCreate(input) {
         const created = onCreateApplication?.(input)
@@ -224,9 +252,11 @@ export default function Dashboard({
                             onSaveResume={onSaveResume && (ja => onSaveResume(selected.id, ja))}
                             statuses={statuses}
                             onSetStatus={onSetStatus && (s => onSetStatus(selected.id, s))}
+                            onDelete={askDelete && (() => askDelete(selected))}
                           />}
                 </main>
                 {drawer}
+                {deleteDialog}
             </div>
         )
     }
@@ -291,6 +321,7 @@ export default function Dashboard({
                             applications={applications}
                             onNew={showNew}
                             onSelect={showDetail}
+                            onDelete={askDelete}
                             statuses={statuses}
                             // A Job Application is built from the profile, and
                             // right now there isn't one.
@@ -303,6 +334,7 @@ export default function Dashboard({
             </div>
 
             {drawer}
+            {deleteDialog}
 
             {regenOpen && (
                 <RegenerateDialog
