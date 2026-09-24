@@ -145,7 +145,9 @@ export default function Dashboard({
         else showList()
     }
 
-    // "Jared's profile" when the dump has a name, so the button reads as yours.
+    // The signed-in user's own first name, from their profile's contact name —
+    // "Priya's profile" — so the button reads as theirs. "Your profile" when
+    // the profile has no name.
     const firstName = String(resumeDump?.contact?.name ?? '').trim().split(/\s+/)[0]
     const profileLabel = firstName ? `${firstName}’s profile` : 'Your profile'
     const liveLeads = (leads?.leads ?? []).filter(l => !l.disqualifiedFor).length
