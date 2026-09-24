@@ -9,6 +9,7 @@ import {
     listJobApplications as listJobApplicationRows,
     updateJobApplicationResume,
     updateJobApplicationStatus,
+    deleteJobApplication,
     listStatusValues,
 } from "../db/job-applications.js"
 import { linkLeadToApplication } from "../db/job-leads.js"
@@ -326,6 +327,29 @@ export const saveJobApplicationStatus = async (userId, id, status) => {
     if (!row) return { ok: false, error: "Application not found" }
 
     return { ok: true, application: shapeApplication(row) }
+}
+
+// Application ids are uuids, and Postgres throws on anything that isn't one
+// rather than matching nothing — so an id straight off the query string is
+// checked first, and a malformed one is simply not found instead of a 500.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Deletes one application. There is no soft delete and no undo: the row holds
+ * the posting, the fit analysis and the built resume, and "delete" means the
+ * user wants that gone, not hidden.
+ *
+ * @returns {Promise<{ ok: true, id: string } | { ok: false, error: string }>}
+ */
+export const removeJobApplication = async (userId, id) => {
+    if (!userId) return { ok: false, error: "User id is missing" }
+    if (!id)     return { ok: false, error: "Application id is missing" }
+    if (!UUID.test(id)) return { ok: false, error: "Application not found" }
+
+    const row = await deleteJobApplication(userId, id)
+    if (!row) return { ok: false, error: "Application not found" }
+
+    return { ok: true, id: row.id }
 }
 
 /**

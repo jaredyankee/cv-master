@@ -11,6 +11,7 @@ import {
     listJobApplications,
     saveJobApplicationResume,
     saveJobApplicationStatus,
+    removeJobApplication,
 } from "../objects/job-application.js";
 import {
     runJobSearch,
@@ -33,6 +34,7 @@ registry.set("job-application:GET",  getJobApplicationPoll);      // ?id=… —
 registry.set("job-application:LIST", listJobApplications);        // no id — all of the user's applications, plus the status labels
 registry.set("job-application:PUT",  saveJobApplicationResume);   // user edits to the built resume
 registry.set("job-application:STAT", saveJobApplicationStatus);   // user moves it along their lifecycle
+registry.set("job-application:DEL",  removeJobApplication);       // user deletes it
 
 registry.set("job-search:RUN",     runJobSearch);            // background: Perplexity + insert new leads
 registry.set("job-search:GET",     getSearchState);          // leads, preferences and run state

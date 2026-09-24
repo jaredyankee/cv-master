@@ -365,6 +365,29 @@ function Workspace({ user, onSignOut }) {
         if (body?.data) patchApplication(id, body.data)
     }
 
+    /**
+     * Delete one application. Throws on failure so the dialog stays open and
+     * says so — removing the card first would show a delete that didn't happen.
+     *
+     * A 404 counts as done: the row is already gone (another tab), or never
+     * existed (an analysis that failed before writing it), and either way the
+     * card has nothing left to point at.
+     */
+    async function handleDeleteApplication(id) {
+        const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "DELETE")
+        if (!res.ok && res.status !== 404) {
+            let message = `Delete failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        setApplications(prev => prev.filter(a => a.id !== id))
+        // The server unlinked any lead it came from (ON DELETE SET NULL);
+        // mirror that here rather than spend a request re-reading the panel.
+        setLeads(prev => (prev
+            ? { ...prev, leads: prev.leads.map(l => (l.applicationId === id ? { ...l, applicationId: null } : l)) }
+            : prev))
+    }
+
     // handle reviewed dump
     async function handleReviewComplete(finalDump, answered = []) {
         // Answers ride on the dump rather than beside it, so they are saved,
@@ -607,6 +630,7 @@ function Workspace({ user, onSignOut }) {
                 onSaveResume={handleSaveResume}
                 statuses={statuses}
                 onSetStatus={handleSetStatus}
+                onDeleteApplication={handleDeleteApplication}
                 leads={leads}
                 leadsForm={leadsForm}
                 leadsError={leadsError}

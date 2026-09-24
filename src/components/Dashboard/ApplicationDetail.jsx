@@ -254,8 +254,9 @@ function CoverLetter({ cl }) {
  *   onSaveResume:  async (jobApplication) => void — omit for read-only
  *   statuses:      string[] — the lifecycle stages, in order
  *   onSetStatus:   async (status) => void — omit for read-only
+ *   onDelete()     opens the confirm; omit to offer no delete
  */
-export default function ApplicationDetail({ application, onBack, onSaveResume, statuses = [], onSetStatus }) {
+export default function ApplicationDetail({ application, onBack, onSaveResume, statuses = [], onSetStatus, onDelete }) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
     const state = analysisState(application)
 
@@ -264,9 +265,25 @@ export default function ApplicationDetail({ application, onBack, onSaveResume, s
 
     return (
         <div className="detail">
-            <button type="button" className="back-btn" onClick={onBack}>
-                <span aria-hidden="true">←</span> All applications
-            </button>
+            <div className="detail-topline">
+                <button type="button" className="back-btn" onClick={onBack}>
+                    <span aria-hidden="true">←</span> All applications
+                </button>
+                {/* Not while the analysis runs: the background function writes
+                    the row when it finishes, so a delete now would find nothing
+                    to delete and the application would reappear on reload. */}
+                {onDelete && (
+                    <button
+                        type="button"
+                        className="btn btn-warning btn-sm"
+                        onClick={onDelete}
+                        disabled={state === 'pending'}
+                        title={state === 'pending' ? 'Available once the analysis finishes' : undefined}
+                    >
+                        Delete
+                    </button>
+                )}
+            </div>
 
             <header className="detail-head">
                 <h1 className="detail-title">{applicationLabel(application)}</h1>
