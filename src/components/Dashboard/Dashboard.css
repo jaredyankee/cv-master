@@ -13,7 +13,7 @@
 
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 20px;
   padding: 16px 28px;
   border-bottom: 1px solid var(--border);
@@ -29,6 +29,36 @@
   letter-spacing: 0.01em;
   color: var(--text-h);
 }
+
+/* Opens the profile drawer. Reads as a document you own rather than a nav
+   link: an icon of a page, and your name on it. */
+.profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.profile-trigger:hover { border-color: var(--text-h); }
+
+.profile-trigger[aria-expanded="true"] {
+  background: var(--text-h);
+  border-color: var(--text-h);
+  color: var(--bg);
+}
+
+.profile-glyph { flex-shrink: 0; }
 
 .topbar-user {
   flex: 1;
@@ -91,10 +121,11 @@
 
 .mobile-tab .count { font-size: 11px; }
 
-/* List screen: the dump beside the applications. */
+/* List screen: listings beside applications. Equal columns — neither is the
+   long read the profile used to be. */
 .split {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   width: 100%;
@@ -102,7 +133,7 @@
   margin: 0 auto;
 }
 
-.split-dump {
+.split-leads {
   border-right: 1px solid var(--border);
   padding: 32px 36px 80px;
   overflow-y: auto;
@@ -136,15 +167,15 @@
   }
 
   .split { grid-template-columns: 1fr; }
-  .split-dump {
+  .split-leads {
     border-right: none;
     max-height: none;
     overflow: visible;
   }
   .split-apps { max-height: none; overflow: visible; }
 
-  .list-screen[data-tab="apps"]    .split-dump { display: none; }
-  .list-screen[data-tab="profile"] .split-apps { display: none; }
+  .list-screen[data-tab="apps"]  .split-leads { display: none; }
+  .list-screen[data-tab="leads"] .split-apps  { display: none; }
 }
 
 /* Focus screen: one application, or the new-application form. */
@@ -166,8 +197,12 @@
      the pinned top-bar height. */
   .topbar-nav .link-btn { padding: 8px 0; }
 
-  .split-dump,
+  .split-leads,
   .split-apps  { padding: 22px 18px 64px; }
+
+  /* The trigger keeps its name until space runs out, then just the page icon —
+     it is the only thing in the bar that opens something, so it stays. */
+  .profile-trigger { padding: 8px 10px; }
   .focus       { padding: 18px 18px 72px; }
 
   .panel-head,
@@ -1141,4 +1176,21 @@
   .dump-header   { margin: -8px 0 22px; }
   .cache-chip    { flex-wrap: wrap; }
   .cache-chip-text { flex-basis: 100%; order: -1; }
+}
+
+/* The listings panel was written to sit above the applications list, with a
+   rule under it; in a column of its own that rule separates it from nothing. */
+.split-leads > .leads {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* Below this the email crowds the name off the trigger; the name matters more. */
+@media (max-width: 560px) {
+  .topbar-user { visibility: hidden; }
+}
+
+@media (max-width: 400px) {
+  .profile-trigger-label { display: none; }
 }

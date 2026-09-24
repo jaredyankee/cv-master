@@ -17,9 +17,17 @@ import './Modal.css'
 export default function Modal({ title, onClose, footer, wide = false, children }) {
     const panelRef = useRef(null)
 
+    // Read at the moment Escape is pressed rather than listed as a dependency.
+    // Callers pass inline arrows, so depending on onClose re-ran the effect on
+    // every parent render — and each run moved focus back to the panel. With
+    // the listings search polling in the background, that pulled the cursor
+    // out of whatever the user was typing in, every few seconds.
+    const onCloseRef = useRef(onClose)
+    useEffect(() => { onCloseRef.current = onClose })
+
     useEffect(() => {
         function onKey(e) {
-            if (e.key === 'Escape') onClose?.()
+            if (e.key === 'Escape') onCloseRef.current?.()
         }
         document.addEventListener('keydown', onKey)
         // The page behind must not scroll under the dialog.
@@ -30,7 +38,7 @@ export default function Modal({ title, onClose, footer, wide = false, children }
             document.removeEventListener('keydown', onKey)
             document.body.style.overflow = previous
         }
-    }, [onClose])
+    }, [])
 
     return (
         <div className="modal-backdrop" onClick={onClose}>
