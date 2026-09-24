@@ -1,7 +1,28 @@
+import { useEffect, useMemo, useState } from 'react'
 import FitBadge from './FitBadge'
 import Progress from '../common/Progress'
+import ApplicationsToolbar from './ApplicationsToolbar'
 import { applicationLabel, formatDate, analysisState } from './applicationUtils'
 import { statusLabel } from '../../lib/status'
+import { applyView, isFiltered, sanitizeView, DEFAULT_VIEW, NO_FIT } from '../../lib/applicationView'
+
+// Remembered per browser: which order you like to read the list in is a
+// preference of this device, not a fact about your applications worth a
+// database row. Read defensively — storage can be missing, blocked, or hold
+// a view from an older release (see sanitizeView).
+const VIEW_KEY = 'cvm.applications.view'
+
+function loadView() {
+    try {
+        return sanitizeView(JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null'))
+    } catch {
+        return DEFAULT_VIEW
+    }
+}
+
+// Below this many there is nothing to sort or narrow, and the controls would
+// only be clutter above one or two cards.
+const TOOLBAR_MIN = 3
 
 /**
  * The applications list.
@@ -20,6 +41,37 @@ import { statusLabel } from '../../lib/status'
  */
 export default function ApplicationsPanel({ applications = [], onNew, onSelect, disabledReason = null, statuses = [] }) {
     const blocked = Boolean(disabledReason)
+    const [view, setView] = useState(loadView)
+
+    useEffect(() => {
+        try {
+            // The search is deliberately not saved; see sanitizeView.
+            const { sort, fits, status } = view
+            localStorage.setItem(VIEW_KEY, JSON.stringify({ sort, fits, status }))
+        } catch { /* private window, or storage blocked — the view still works */ }
+    }, [view])
+
+    // A stage remembered from an older release may no longer exist once the
+    // list of stages arrives; drop it rather than filter everything out.
+    const effectiveView = useMemo(() => ({ ...view, ...pickStatus(view, statuses) }), [view, statuses])
+
+    const shown = useMemo(
+        () => applyView(applications, effectiveView, statuses),
+        [applications, effectiveView, statuses],
+    )
+
+    const counts = useMemo(() => {
+        const c = {}
+        for (const app of applications) {
+            const f = app?.response?.fit_criteria?.level ?? NO_FIT
+            c[f] = (c[f] ?? 0) + 1
+        }
+        return c
+    }, [applications])
+
+    const filtered = isFiltered(effectiveView)
+    const showToolbar = applications.length >= TOOLBAR_MIN || filtered
+    const clear = () => setView(v => ({ ...DEFAULT_VIEW, sort: v.sort }))
 
     return (
         <div className="apps">
@@ -43,6 +95,22 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                 <p className="apps-blocked">{disabledReason}</p>
             )}
 
+            {showToolbar && (
+                <ApplicationsToolbar
+                    view={effectiveView}
+                    onChange={setView}
+                    statuses={statuses}
+                    counts={counts}
+                />
+            )}
+
+            {filtered && applications.length > 0 && (
+                <p className="apps-result" role="status">
+                    Showing {shown.length} of {applications.length}
+                    <button type="button" className="link-btn" onClick={clear}>Clear filters</button>
+                </p>
+            )}
+
             {applications.length === 0 ? (
                 <div className="empty">
                     <p className="empty-title">No applications yet</p>
@@ -60,9 +128,15 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                         Add your first
                     </button>
                 </div>
+            ) : shown.length === 0 ? (
+                <div className="empty">
+                    <p className="empty-title">No applications match</p>
+                    <p className="empty-hint">Nothing fits every filter you have on.</p>
+                    <button type="button" className="btn" onClick={clear}>Clear filters</button>
+                </div>
             ) : (
                 <ul className="app-list">
-                    {applications.map(app => {
+                    {shown.map(app => {
                         const state = analysisState(app)
                         return (
                             <li key={app.id}>
@@ -110,4 +184,10 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
             )}
         </div>
     )
+}
+
+/** The view's stage, or '' once the stages are known and it isn't one of them. */
+function pickStatus(view, statuses) {
+    if (!view.status || statuses.length === 0 || statuses.includes(view.status)) return {}
+    return { status: '' }
 }
