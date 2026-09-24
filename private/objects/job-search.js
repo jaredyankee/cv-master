@@ -2,7 +2,7 @@ import { getSearchKey, hasSearchKey, saveSearchKey } from "../db/users.js"
 import { getResumeDumpByUser } from "../db/resume-dump.js"
 import { shapeDump } from "./resume-dump.js"
 import { search, buildQueries } from "../lib/search/perplexity.js"
-import { toLeads, seedPreferences, normalizePreferences } from "../lib/leads.js"
+import { toLeads, seedPreferences, normalizePreferences, postingKind, BOARD_REASON } from "../lib/leads.js"
 import {
     getSearchPreferences,
     saveSearchPreferences,
@@ -29,7 +29,10 @@ export const shapeLead = (row) => ({
     postedAt: row.posted_at ?? null,
     arrangement: row.arrangement ?? null,
     salaryFloor: row.salary_floor ?? null,
-    disqualifiedFor: row.disqualified_for ?? null,
+    // Rows stored before board pages were recognised carry no reason; the
+    // check runs again on read so they sort themselves without a re-search.
+    disqualifiedFor: row.disqualified_for
+        ?? (postingKind(row.url) === 'board' ? BOARD_REASON : null),
     linkStatus: row.link_status ?? null,
     linkCheckedAt: row.link_checked_at ?? null,
     applicationId: row.job_application_id ?? null,
