@@ -1,0 +1,132 @@
+/* ── AI provider: the top-bar button and its dialog ──────────── */
+
+/* Quieter than the profile trigger beside it: this is a fact you check now
+   and then, not a place you go. */
+.ai-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.ai-trigger:hover { color: var(--accent); }
+
+/* Green when a key is on file for the active provider, hollow when not —
+   the one thing worth seeing without opening the dialog. */
+.ai-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.ai-loading { color: var(--muted); margin: 0; }
+
+.ai-active {
+  padding: 16px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+}
+
+.ai-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.ai-pill {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 4px 7px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+
+.ai-key {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.ai-key.is-none { color: var(--muted); }
+.ai-key.is-bad  { color: var(--error); }
+
+.ai-code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.ai-models {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.ai-models dt { color: var(--muted); }
+.ai-models dd { margin: 0; min-width: 0; }
+
+.ai-models.is-quiet { margin-top: 8px; font-size: 12.5px; }
+.ai-models.is-quiet .ai-code { color: var(--text); font-size: 12px; }
+
+.ai-nokey { margin-top: 14px; }
+
+.ai-label { margin-top: 24px; }
+
+.ai-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Directly under a section label, the label is the spacing. */
+.ai-list .ai-item:first-child,
+.ai-label + .ai-item { padding-top: 0; }
+
+.ai-foot {
+  margin: 20px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  /* Same tap-target padding as the sign-out link beside it. */
+  .ai-trigger { padding: 8px 0; }
+  /* Label over value: the model names are too long to share a line at 390px. */
+  .ai-models { grid-template-columns: 1fr; gap: 1px; }
+  .ai-models dd + dt { margin-top: 6px; }
+}
+
+.ai-dot.is-empty {
+  background: transparent;
+  border: 1px solid var(--muted);
+}

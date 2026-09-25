@@ -8,6 +8,8 @@ import RegenerateDialog from './RegenerateDialog'
 import CachedDumpChip from './CachedDumpChip'
 import ProfileDrawer from './ProfileDrawer'
 import DeleteApplicationDialog from './DeleteApplicationDialog'
+import AiStatusDialog from './AiStatusDialog'
+import { providerInfo } from '../../lib/providers'
 import './Dashboard.css'
 
 /**
@@ -39,6 +41,10 @@ import './Dashboard.css'
  *   onDeleteApplication(id) — optional; async, throws on failure. Offered on
  *                            every finished or failed application, never on
  *                            one still being analysed
+ *   provider               — the active AI provider id, for the top-bar button
+ *   hasProviderKey         — whether a key is on file for it
+ *   onLoadAiStatus()       — optional; async → GET /ai-status. Renders the
+ *                            AI button when provided
  *   user                   — { name, email } from the auth session (optional)
  *   onSignOut()            — optional; renders a Sign out button when provided
  *   dumpState              — 'READY' | 'NEW' | 'REVISE'
@@ -65,6 +71,9 @@ export default function Dashboard({
     statuses = [],
     onSetStatus,
     onDeleteApplication,
+    provider = 'anthropic',
+    hasProviderKey = true,
+    onLoadAiStatus,
     user = null,
     onSignOut,
     dumpState = 'READY',
@@ -95,6 +104,7 @@ export default function Dashboard({
     const closeDrawer = useCallback(() => setDrawerOpen(false), [])
     // The application waiting on "are you sure", from the list or its page.
     const [deletingId, setDeletingId] = useState(null)
+    const [aiOpen, setAiOpen] = useState(false)
 
     const isRegenerating = dumpState !== 'READY'
 
@@ -180,6 +190,11 @@ export default function Dashboard({
     const profileLabel = firstName ? `${firstName}’s profile` : 'Your profile'
     const liveLeads = (leads?.leads ?? []).filter(l => !l.disqualifiedFor).length
 
+    const aiLabel = providerInfo(provider).label
+    const aiDialog = aiOpen && (
+        <AiStatusDialog onLoad={onLoadAiStatus} onClose={() => setAiOpen(false)} />
+    )
+
     const topbar = (
         // Inert while the drawer is open: the backdrop covers it, and nothing
         // behind a modal panel should be reachable by Tab either.
@@ -204,6 +219,19 @@ export default function Dashboard({
             )}
             <span className="topbar-user">{user?.email ?? resumeDump?.contact?.name}</span>
             <nav className="topbar-nav">
+                {onLoadAiStatus && (
+                    <button
+                        type="button"
+                        className="ai-trigger"
+                        onClick={() => setAiOpen(true)}
+                        aria-haspopup="dialog"
+                        aria-label={`AI provider: ${aiLabel}${hasProviderKey ? '' : ', no key on file'}`}
+                        title={hasProviderKey ? undefined : 'No key on file'}
+                    >
+                        <span className={`ai-dot${hasProviderKey ? '' : ' is-empty'}`} aria-hidden="true" />
+                        {aiLabel}
+                    </button>
+                )}
                 {onSignOut && (
                     <button type="button" className="link-btn" onClick={onSignOut}>Sign out</button>
                 )}
@@ -257,6 +285,7 @@ export default function Dashboard({
                 </main>
                 {drawer}
                 {deleteDialog}
+                {aiDialog}
             </div>
         )
     }
@@ -335,6 +364,7 @@ export default function Dashboard({
 
             {drawer}
             {deleteDialog}
+            {aiDialog}
 
             {regenOpen && (
                 <RegenerateDialog

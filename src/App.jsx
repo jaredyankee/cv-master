@@ -388,6 +388,17 @@ function Workspace({ user, onSignOut }) {
             : prev))
     }
 
+    /** The AI panel's contents. Fetched on open; see AiStatusDialog. */
+    async function loadAiStatus() {
+        const res = await appRequest("/ai-status", "GET")
+        if (!res.ok) {
+            let message = `Could not load your AI settings (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        return res.json()
+    }
+
     // handle reviewed dump
     async function handleReviewComplete(finalDump, answered = []) {
         // Answers ride on the dump rather than beside it, so they are saved,
@@ -631,6 +642,9 @@ function Workspace({ user, onSignOut }) {
                 statuses={statuses}
                 onSetStatus={handleSetStatus}
                 onDeleteApplication={handleDeleteApplication}
+                provider={provider}
+                hasProviderKey={configuredProviders.includes(provider)}
+                onLoadAiStatus={loadAiStatus}
                 leads={leads}
                 leadsForm={leadsForm}
                 leadsError={leadsError}
