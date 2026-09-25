@@ -1,6 +1,6 @@
 import { sql } from "./db.js"
 import { encrypt, decrypt } from "../lib/crypto.js"
-import { normalizeProvider, DEFAULT_PROVIDER } from "../lib/providers/index.js"
+import { normalizeProvider, DEFAULT_PROVIDER, PROVIDERS } from "../lib/providers/index.js"
 
 /**
  * Makes sure a users row exists for this id so that rows in resume_dumps /
@@ -106,6 +106,44 @@ export const getKeyStatus = async (user_id) => {
         configured.push(DEFAULT_PROVIDER)
     }
     return { provider, configured }
+}
+
+/**
+ * Enough of each stored key for the user to recognise it — the last four
+ * characters, the same hint the providers' own consoles show — and no more.
+ *
+ * Decrypts to get them, so the plain key exists in this function's memory for
+ * a moment; only the four characters are returned, and nothing is logged. A
+ * key shorter than 12 characters gets no hint: four characters of it would be
+ * a real share of the secret.
+ *
+ * A ciphertext that won't decrypt (a changed ENCRYPTION_KEY, a tampered row)
+ * is reported as `unreadable` rather than thrown, so one bad row can't take
+ * the whole status panel down with it — and "a key is on file but can't be
+ * read" is exactly what the user needs to know in that case.
+ *
+ * @param {string} user_id
+ * @returns {Promise<{ provider: string,
+ *                     keys: Record<string, KeyHint>,
+ *                     search: KeyHint }>}
+ *   KeyHint = { set: boolean, last4: string|null, unreadable?: true }
+ */
+export const getKeyHints = async (user_id) => {
+    const row = await keyRow(user_id)
+    const hint = (ciphertext) => {
+        if (!ciphertext) return { set: false, last4: null }
+        try {
+            const plain = decrypt(ciphertext)
+            return { set: true, last4: plain.length >= 12 ? plain.slice(-4) : null }
+        } catch {
+            return { set: true, last4: null, unreadable: true }
+        }
+    }
+    return {
+        provider: normalizeProvider(row?.api_provider),
+        keys: Object.fromEntries(PROVIDERS.map(p => [p, hint(ciphertextFor(row, p))])),
+        search: hint(row?.api_keys?.[SEARCH_PROVIDER]),
+    }
 }
 
 /* ── Search key ──────────────────────────────────────────────────

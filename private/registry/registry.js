@@ -20,6 +20,7 @@ import {
     savePreferences,
     dismiss as dismissLead,
 } from "../objects/job-search.js";
+import { getAiStatus } from "../objects/ai-status.js";
 
 const registry = new Map();
 
@@ -41,6 +42,8 @@ registry.set("job-search:GET",     getSearchState);          // leads, preferenc
 registry.set("job-search:FORM",    getOrSeedPreferences);    // ?form=1 — stored prefs, or a guess from the dump
 registry.set("job-search:PREFS",   savePreferences);         // user edits to the search preferences
 registry.set("job-search:DISMISS", dismissLead);             // hide a lead from future runs
+
+registry.set("ai-status:GET", getAiStatus);   // active provider, models, key hints
 
 export const fnRegistry = (dir) => {
     console.log("fn registry");

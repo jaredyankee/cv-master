@@ -268,6 +268,14 @@ is a plain column and deliberately not folded into the ciphertext: it isn't a
 secret, and burying it there would mean a misconfigured `ENCRYPTION_KEY` leaves
 you unable to tell which provider a user even chose.
 
+`GET /ai-status` is what the top bar's AI button shows: the active provider,
+`modelFor` for each provider and job (so env overrides appear as they take
+effect), and each stored key as its **last four characters only**. That path
+decrypts to find them, returns nothing more, and logs nothing; a key shorter
+than 12 characters gets no hint at all, and one that won't decrypt is reported
+as `unreadable` rather than failing the request. It is fetched when the panel
+opens, not on every dashboard load.
+
 `src/lib/providers.js` mirrors the list for the browser. It is a copy, not an
 import — `private/` is server-only and pulls in three SDKs, none of which
 belong in the bundle. The server normalizes whatever arrives, so drift there is
