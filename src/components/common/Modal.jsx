@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { lockScroll } from '../../lib/scrollLock'
 import './Modal.css'
 
 /**
@@ -30,13 +31,13 @@ export default function Modal({ title, onClose, footer, wide = false, children }
             if (e.key === 'Escape') onCloseRef.current?.()
         }
         document.addEventListener('keydown', onKey)
-        // The page behind must not scroll under the dialog.
-        const previous = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
+        // The page behind must not scroll under the dialog. Counted, not
+        // saved and restored: see lib/scrollLock.
+        const unlock = lockScroll()
         panelRef.current?.focus()
         return () => {
             document.removeEventListener('keydown', onKey)
-            document.body.style.overflow = previous
+            unlock()
         }
     }, [])
 
