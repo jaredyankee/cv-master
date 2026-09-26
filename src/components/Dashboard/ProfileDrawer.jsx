@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { lockScroll } from '../../lib/scrollLock'
 import './ProfileDrawer.css'
 
 /**
@@ -51,13 +52,13 @@ export default function ProfileDrawer({ open, onClose, title, actions = null, ch
         }
         document.addEventListener('keydown', onKey)
 
-        // The page behind must not scroll under the drawer.
-        const previous = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
+        // The page behind must not scroll under the drawer. Counted, not
+        // saved and restored: see lib/scrollLock.
+        const unlock = lockScroll()
 
         return () => {
             document.removeEventListener('keydown', onKey)
-            document.body.style.overflow = previous
+            unlock()
             if (returnTo.current && typeof returnTo.current.focus === 'function') {
                 returnTo.current.focus()
             }
