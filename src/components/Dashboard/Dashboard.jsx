@@ -9,8 +9,32 @@ import CachedDumpChip from './CachedDumpChip'
 import ProfileDrawer from './ProfileDrawer'
 import DeleteApplicationDialog from './DeleteApplicationDialog'
 import AiStatusDialog from './AiStatusDialog'
+import SectionNav from './SectionNav'
+import { SECTIONS } from '../../lib/sections'
 import { providerInfo } from '../../lib/providers'
+import { useMediaQuery } from '../../lib/useMediaQuery'
 import './Dashboard.css'
+
+// Which section was last given the whole screen. A preference of this device,
+// like the applications sort; read defensively, since storage can be blocked
+// or hold a section from an older release.
+const SECTION_KEY = 'cvm.dashboard.section'
+
+function loadSection() {
+    try {
+        const saved = localStorage.getItem(SECTION_KEY)
+        return SECTIONS.some(x => x.id === saved) ? saved : null
+    } catch {
+        return null
+    }
+}
+
+function saveSection(section) {
+    try {
+        if (section) localStorage.setItem(SECTION_KEY, section)
+        else localStorage.removeItem(SECTION_KEY)
+    } catch { /* private window, or storage blocked — the choice just isn't kept */ }
+}
 
 /**
  * Main interface after onboarding.
@@ -96,9 +120,12 @@ export default function Dashboard({
     // { mode: 'list' | 'new' | 'detail', id, lead } — `lead` is set when a new
     // application starts from a listing, so the form can carry its link.
     const [view, setView] = useState({ mode: 'list', id: null, lead: null })
-    // Which list panel a narrow viewport shows: 'apps' | 'leads'. Ignored by
-    // CSS above the breakpoint.
-    const [tab, setTab] = useState('apps')
+    // Which section has the whole screen, or null for the overview. See
+    // SectionNav; remembered per browser, like the applications sort.
+    const [section, setSection] = useState(loadSection)
+    // Phones get cards even in the full-screen section: a five-column table
+    // doesn't fit 390px, and the cards were designed for exactly that width.
+    const narrow = useMediaQuery('(max-width: 700px)')
     const [regenOpen, setRegenOpen] = useState(false)
     const [drawerOpen, setDrawerOpen] = useState(false)
     const closeDrawer = useCallback(() => setDrawerOpen(false), [])
@@ -149,12 +176,19 @@ export default function Dashboard({
     const showNewFrom  = (lead) => setView({ mode: 'new', id: null, lead })
     const showDetail   = (id) => setView({ mode: 'detail', id, lead: null })
 
-    // Both panels share the page scroller, so switching tabs while scrolled
-    // down would drop you into the middle of the other one.
-    function selectTab(next) {
-        setTab(next)
+    // From the list screen, the current section toggles back to the overview.
+    // From an application's page, any section is a way back to the list.
+    function selectSection(next) {
+        const onList = view.mode === 'list'
+        const target = onList && section === next ? null : next
+        setSection(target)
+        saveSection(target)
+        if (!onList) showList()
+        // One page scroller for every section, so without this a switch while
+        // scrolled down would open the next one halfway through.
         window.scrollTo({ top: 0 })
     }
+
 
     // Offered on every screen an application appears, so the dialog is too.
     const deleting = deletingId ? applications.find(a => a.id === deletingId) ?? null : null
@@ -190,6 +224,15 @@ export default function Dashboard({
     const profileLabel = firstName ? `${firstName}’s profile` : 'Your profile'
     const liveLeads = (leads?.leads ?? []).filter(l => !l.disqualifiedFor).length
 
+    const sectionNav = (
+        <SectionNav
+            section={section}
+            onSelect={selectSection}
+            counts={{ applications: applications.length, listings: isRegenerating ? 0 : liveLeads }}
+            inert={drawerOpen}
+        />
+    )
+
     const aiLabel = providerInfo(provider).label
     const aiDialog = aiOpen && (
         <AiStatusDialog onLoad={onLoadAiStatus} onClose={() => setAiOpen(false)} />
@@ -202,7 +245,7 @@ export default function Dashboard({
             <span className="topbar-brand">CV&nbsp;Master</span>
             {/* Hidden mid-rebuild: the profile is empty on purpose then, and
                 the listings column already shows what is going on. */}
-            {!isRegenerating && (
+            {!isRegenerating && section !== 'profile' && (
                 <button
                     type="button"
                     className="profile-trigger"
@@ -283,6 +326,7 @@ export default function Dashboard({
                             onDelete={askDelete && (() => askDelete(selected))}
                           />}
                 </main>
+                {sectionNav}
                 {drawer}
                 {deleteDialog}
                 {aiDialog}
@@ -290,78 +334,90 @@ export default function Dashboard({
         )
     }
 
-    // ── list screen: listings beside applications ────────────────
-    // On a phone the two columns become tabs rather than a stack, so the one
-    // you act on isn't a long scroll below the other. Both stay mounted and CSS
-    // hides one, which keeps scroll position and any open form alive across a
-    // switch.
+    // Mid-rebuild there is no profile to search with, so wherever the
+    // listings would go, the rebuild in progress goes instead.
+    const leadsContent = isRegenerating ? (
+        <ResumeDumpPanel
+            dump={resumeDump}
+            dumpState={dumpState}
+            header={dumpHeader}
+            onResume={onResumeRegeneration}
+        />
+    ) : (
+        <LeadsPanel
+            state={leads}
+            form={leadsForm}
+            error={leadsError}
+            onOpenForm={onOpenLeadsForm}
+            onCloseForm={onCloseLeadsForm}
+            onSavePreferences={onSaveLeadPreferences}
+            onSearch={onSearchLeads}
+            onDismiss={onDismissLead}
+            onStart={showNewFrom}
+        />
+    )
+
+    const applicationsPanel = (layout) => (
+        <ApplicationsPanel
+            applications={applications}
+            onNew={showNew}
+            onSelect={showDetail}
+            onDelete={askDelete}
+            statuses={statuses}
+            layout={layout}
+            // A Job Application is built from the profile, and
+            // right now there isn't one.
+            disabledReason={isRegenerating
+                ? 'Finish rebuilding your profile to start a Job Application.'
+                : null}
+        />
+    )
+
+    const sectionLabel = SECTIONS.find(x => x.id === section)?.label
+
+    // ── list screen ──────────────────────────────────────────────
+    // With no section chosen: listings beside applications, the overview. On
+    // a phone that is the applications alone, and the bar is how you reach
+    // the other two. A chosen section takes the whole screen.
     return (
         <div className="shell">
             {topbar}
-            <div className="list-screen" data-tab={tab} inert={drawerOpen}>
-                <nav className="mobile-tabs" role="tablist" aria-label="Dashboard panels">
-                    <button
-                        type="button" role="tab" id="tab-apps"
-                        aria-selected={tab === 'apps'} aria-controls="panel-apps"
-                        className={`mobile-tab${tab === 'apps' ? ' is-active' : ''}`}
-                        onClick={() => selectTab('apps')}
-                    >
-                        Applications
-                        {applications.length > 0 && <span className="count">{applications.length}</span>}
-                    </button>
-                    <button
-                        type="button" role="tab" id="tab-leads"
-                        aria-selected={tab === 'leads'} aria-controls="panel-leads"
-                        className={`mobile-tab${tab === 'leads' ? ' is-active' : ''}`}
-                        onClick={() => selectTab('leads')}
-                    >
-                        {isRegenerating ? 'Profile' : 'Listings'}
-                        {!isRegenerating && liveLeads > 0 && <span className="count">{liveLeads}</span>}
-                    </button>
-                </nav>
+            <div className="list-screen" data-section={section ?? 'overview'} inert={drawerOpen}>
+                {section === null && (
+                    <div className="split">
+                        <section className="split-leads" aria-label="Listings">{leadsContent}</section>
+                        <main className="split-apps">{applicationsPanel('list')}</main>
+                    </div>
+                )}
 
-                <div className="split">
-                    <section className="split-leads" id="panel-leads" role="tabpanel" aria-labelledby="tab-leads">
-                        {isRegenerating ? (
-                            // The rebuild in progress, where it can't be missed:
-                            // a search needs a profile, and there isn't one.
-                            <ResumeDumpPanel
-                                dump={resumeDump}
-                                dumpState={dumpState}
-                                header={dumpHeader}
-                                onResume={onResumeRegeneration}
-                            />
-                        ) : (
-                            <LeadsPanel
-                                state={leads}
-                                form={leadsForm}
-                                error={leadsError}
-                                onOpenForm={onOpenLeadsForm}
-                                onCloseForm={onCloseLeadsForm}
-                                onSavePreferences={onSaveLeadPreferences}
-                                onSearch={onSearchLeads}
-                                onDismiss={onDismissLead}
-                                onStart={showNewFrom}
-                            />
+                {section !== null && (
+                    <main className={`section-view section-${section}`} aria-label={sectionLabel}>
+                        {section === 'applications' && applicationsPanel(narrow ? 'list' : 'table')}
+                        {section === 'listings' && leadsContent}
+                        {section === 'profile' && (
+                            <>
+                                {onEditProfile && !isRegenerating && (
+                                    <div className="section-actions">
+                                        <button type="button" className="link-btn" onClick={onEditProfile}>
+                                            Review suggestions
+                                        </button>
+                                    </div>
+                                )}
+                                <ResumeDumpPanel
+                                    dump={resumeDump}
+                                    answeredQuestions={answeredQuestions}
+                                    onSave={onSaveDump}
+                                    dumpState={dumpState}
+                                    header={dumpHeader}
+                                    onResume={onResumeRegeneration}
+                                />
+                            </>
                         )}
-                    </section>
-                    <main className="split-apps" id="panel-apps" role="tabpanel" aria-labelledby="tab-apps">
-                        <ApplicationsPanel
-                            applications={applications}
-                            onNew={showNew}
-                            onSelect={showDetail}
-                            onDelete={askDelete}
-                            statuses={statuses}
-                            // A Job Application is built from the profile, and
-                            // right now there isn't one.
-                            disabledReason={isRegenerating
-                                ? 'Finish rebuilding your profile to start a Job Application.'
-                                : null}
-                        />
                     </main>
-                </div>
+                )}
             </div>
 
+            {sectionNav}
             {drawer}
             {deleteDialog}
             {aiDialog}

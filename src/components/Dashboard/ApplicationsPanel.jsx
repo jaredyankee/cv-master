@@ -35,12 +35,13 @@ const TOOLBAR_MIN = 3
  *   disabledReason: string | null — why a Job Application can't be started
  *                   right now. Existing ones stay open and readable.
  *   statuses:       string[] — used only to tell a live stage from a stale one
+ *   layout:         'list' (cards) | 'table' — the full-screen section's table
  *
  * Status is shown here but changed on the detail screen. Scanning the list for
  * "who haven't I heard back from" is the job this serves; editing in place
  * would put a dropdown on every row for something done once per application.
  */
-export default function ApplicationsPanel({ applications = [], onNew, onSelect, onDelete, disabledReason = null, statuses = [] }) {
+export default function ApplicationsPanel({ applications = [], onNew, onSelect, onDelete, disabledReason = null, statuses = [], layout = 'list' }) {
     const blocked = Boolean(disabledReason)
     const [view, setView] = useState(loadView)
 
@@ -136,69 +137,200 @@ export default function ApplicationsPanel({ applications = [], onNew, onSelect, 
                     <button type="button" className="btn" onClick={clear}>Clear filters</button>
                 </div>
             ) : (
-                <ul className="app-list">
-                    {shown.map(app => {
-                        const state = analysisState(app)
-                        // Nothing to delete until the analysis writes the row.
-                        const deletable = Boolean(onDelete) && state !== 'pending'
-                        return (
-                            <li key={app.id} className={`app-item${deletable ? ' has-delete' : ''}`}>
-                                <button type="button" className="app-card" onClick={() => onSelect(app.id)}>
-                                    <span className="app-card-top">
-                                        <span className="app-card-title">{applicationLabel(app)}</span>
-                                        {app.status && (
-                                            <span
-                                                className="app-card-status"
-                                                // A status the enum no longer lists still shows,
-                                                // marked, rather than disappearing from the row.
-                                                data-stale={statuses.length > 0 && !statuses.includes(app.status) ? 'true' : undefined}
-                                            >
-                                                {statusLabel(app.status)}
-                                            </span>
-                                        )}
-                                        {app.response?.fit_criteria?.level && (
-                                            <FitBadge level={app.response.fit_criteria.level} />
-                                        )}
-                                    </span>
-
-                                    <span className="app-card-meta">
-                                        {state === 'pending' ? (
-                                            <Progress
-                                                variant="inline"
-                                                phrases={['Analyzing']}
-                                                startedAt={new Date(app.createdAt).getTime()}
-                                            />
-                                        ) : (
-                                            <>
-                                                <span>{formatDate(app.createdAt)}</span>
-                                                {state === 'failed' && <span className="meta-failed">Failed</span>}
-                                                {app.questions?.length > 0 && (
-                                                    <span>{app.questions.length} question{app.questions.length !== 1 ? 's' : ''}</span>
-                                                )}
-                                                {app.notes && <span>Notes</span>}
-                                            </>
-                                        )}
-                                    </span>
-                                </button>
-                                {/* A sibling of the card, not inside it: a button
-                                    can't hold another button. */}
-                                {deletable && (
-                                    <button
-                                        type="button"
-                                        className="app-card-delete"
-                                        onClick={() => onDelete(app)}
-                                        aria-label={`Delete ${applicationLabel(app)}`}
-                                        title="Delete"
-                                    >
-                                        <TrashGlyph />
-                                    </button>
-                                )}
-                            </li>
-                        )
-                    })}
-                </ul>
+                layout === 'table'
+                    ? <ApplicationsTable
+                        apps={shown}
+                        statuses={statuses}
+                        sort={effectiveView.sort}
+                        onSort={sort => setView(v => ({ ...v, sort }))}
+                        onSelect={onSelect}
+                        onDelete={onDelete}
+                      />
+                    : <ApplicationCards apps={shown} statuses={statuses} onSelect={onSelect} onDelete={onDelete} />
             )}
         </div>
+    )
+}
+
+/** The list as cards: the overview's narrow column, and every phone. */
+function ApplicationCards({ apps, statuses, onSelect, onDelete }) {
+    return (
+        <ul className="app-list">
+            {apps.map(app => {
+                const state = analysisState(app)
+                // Nothing to delete until the analysis writes the row.
+                const deletable = Boolean(onDelete) && state !== 'pending'
+                return (
+                    <li key={app.id} className="app-item">
+                        <button type="button" className="app-card" onClick={() => onSelect(app.id)}>
+                            <span className="app-card-top">
+                                <span className="app-card-title">{applicationLabel(app)}</span>
+                                {app.status && (
+                                    <span
+                                        className="app-card-status"
+                                        // A status the enum no longer lists still shows,
+                                        // marked, rather than disappearing from the row.
+                                        data-stale={statuses.length > 0 && !statuses.includes(app.status) ? 'true' : undefined}
+                                    >
+                                        {statusLabel(app.status)}
+                                    </span>
+                                )}
+                                {app.response?.fit_criteria?.level && (
+                                    <FitBadge level={app.response.fit_criteria.level} />
+                                )}
+                            </span>
+
+                            <span className="app-card-meta">
+                                {state === 'pending' ? (
+                                    <Progress
+                                        variant="inline"
+                                        phrases={['Analyzing']}
+                                        startedAt={new Date(app.createdAt).getTime()}
+                                    />
+                                ) : (
+                                    <>
+                                        <span>{formatDate(app.createdAt)}</span>
+                                        {state === 'failed' && <span className="meta-failed">Failed</span>}
+                                        {app.questions?.length > 0 && (
+                                            <span>{app.questions.length} question{app.questions.length !== 1 ? 's' : ''}</span>
+                                        )}
+                                        {app.notes && <span>Notes</span>}
+                                    </>
+                                )}
+                            </span>
+                        </button>
+                        {/* A sibling of the card, not inside it: a button
+                            can't hold another button. */}
+                        {deletable && (
+                            <button
+                                type="button"
+                                className="app-card-delete"
+                                onClick={() => onDelete(app)}
+                                aria-label={`Delete ${applicationLabel(app)}`}
+                                title="Delete"
+                            >
+                                <TrashGlyph />
+                            </button>
+                        )}
+                    </li>
+                )
+            })}
+        </ul>
+    )
+}
+
+// Which sort each column header applies, and which way it runs, for
+// aria-sort. "Added" is the one column that goes both ways, so it toggles.
+const COLUMN_SORTS = {
+    company: { sort: 'company', dir: 'ascending' },
+    stage:   { sort: 'status',  dir: 'descending' },
+    fit:     { sort: 'fit',     dir: 'descending' },
+}
+
+/** A column header that applies its sort when clicked. */
+function SortHeader({ column, sort, onSort, children }) {
+    const spec = COLUMN_SORTS[column]
+    const active = sort === spec.sort
+    return (
+        <th scope="col" aria-sort={active ? spec.dir : 'none'}>
+            <button type="button" className={`app-th-btn${active ? ' is-active' : ''}`} onClick={() => onSort(spec.sort)}>
+                {children}
+                <span className="app-th-arrow" aria-hidden="true">{active ? (spec.dir === 'ascending' ? '↑' : '↓') : ''}</span>
+            </button>
+        </th>
+    )
+}
+
+/**
+ * The list as a table, for the full-screen Applications section. With the
+ * whole width to fill, one row per application reads faster than cards:
+ * role, company, stage and fit line up in columns you can scan down.
+ *
+ * The headers sort, using the same sorts as the toolbar's menu, so the two
+ * never disagree about what order the list is in.
+ */
+function ApplicationsTable({ apps, statuses, sort, onSort, onSelect, onDelete }) {
+    const addedDir = sort === 'newest' ? 'descending' : sort === 'oldest' ? 'ascending' : 'none'
+
+    return (
+        <table className="app-table">
+            <thead>
+                <tr>
+                    <th scope="col">Role</th>
+                    <SortHeader column="company" sort={sort} onSort={onSort}>Company</SortHeader>
+                    <SortHeader column="stage" sort={sort} onSort={onSort}>Stage</SortHeader>
+                    <SortHeader column="fit" sort={sort} onSort={onSort}>Fit</SortHeader>
+                    <th scope="col" aria-sort={addedDir}>
+                        <button
+                            type="button"
+                            className={`app-th-btn${addedDir !== 'none' ? ' is-active' : ''}`}
+                            onClick={() => onSort(sort === 'newest' ? 'oldest' : 'newest')}
+                        >
+                            Added
+                            <span className="app-th-arrow" aria-hidden="true">
+                                {addedDir === 'descending' ? '↓' : addedDir === 'ascending' ? '↑' : ''}
+                            </span>
+                        </button>
+                    </th>
+                    {onDelete && <th scope="col"><span className="visually-hidden">Delete</span></th>}
+                </tr>
+            </thead>
+            <tbody>
+                {apps.map(app => {
+                    const state = analysisState(app)
+                    const level = app.response?.fit_criteria?.level
+                    const stale = statuses.length > 0 && app.status && !statuses.includes(app.status)
+                    return (
+                        // The whole row opens the application for a mouse; the
+                        // button in the first cell is the keyboard's way in.
+                        <tr key={app.id} className="app-row" onClick={() => onSelect(app.id)}>
+                            <td className="app-cell-role">
+                                <button
+                                    type="button"
+                                    className="app-row-open"
+                                    onClick={e => { e.stopPropagation(); onSelect(app.id) }}
+                                >
+                                    {app.jobTitle?.trim() || applicationLabel(app)}
+                                </button>
+                            </td>
+                            <td className="app-cell-company">{app.companyName?.trim() || <span className="app-cell-none">—</span>}</td>
+                            <td>
+                                {app.status && (
+                                    <span className="app-card-status" data-stale={stale ? 'true' : undefined}>
+                                        {statusLabel(app.status)}
+                                    </span>
+                                )}
+                            </td>
+                            <td>
+                                {state === 'pending' ? (
+                                    <Progress variant="inline" phrases={['Analyzing']} startedAt={new Date(app.createdAt).getTime()} />
+                                ) : state === 'failed' ? (
+                                    <span className="meta-failed">Failed</span>
+                                ) : level ? (
+                                    <FitBadge level={level} />
+                                ) : null}
+                            </td>
+                            <td className="app-cell-date">{formatDate(app.createdAt)}</td>
+                            {onDelete && (
+                                <td className="app-cell-delete">
+                                    {state !== 'pending' && (
+                                        <button
+                                            type="button"
+                                            className="app-card-delete"
+                                            onClick={e => { e.stopPropagation(); onDelete(app) }}
+                                            aria-label={`Delete ${applicationLabel(app)}`}
+                                            title="Delete"
+                                        >
+                                            <TrashGlyph />
+                                        </button>
+                                    )}
+                                </td>
+                            )}
+                        </tr>
+                    )
+                })}
+            </tbody>
+        </table>
     )
 }
 
