@@ -6,16 +6,23 @@
   flex: 1;
   min-height: 100svh;
   text-align: left;
-  /* Pinned at the tab breakpoint so the mobile tab bar can stick directly
-     beneath the top bar without guessing its height. */
   --topbar-h: auto;
+  --topbar-desk: 69px;
+  /* The section bar pinned to the bottom (SectionNav). The overview's two
+     columns scroll on their own, so their height has to leave room for it. */
+  --nav-h: 52px;
 }
 
 .topbar {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 16px 28px;
+  /* A fixed height, not padding around whatever it holds: the profile button
+     is hidden on the Profile section, and a bar that shrank without it made
+     the page jump on every switch. The overview's columns size against it. */
+  box-sizing: border-box;
+  height: var(--topbar-desk);
+  padding: 0 28px;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -85,42 +92,6 @@
   min-height: 0;
 }
 
-/* Tab bar, phones and small tablets only. Both panels stay mounted and CSS
-   picks which one shows, so an open section editor survives a switch. */
-.mobile-tabs {
-  display: none;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.mobile-tab {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin-bottom: -1px;
-  padding: 14px 8px;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
-}
-
-.mobile-tab.is-active {
-  color: var(--text-h);
-  border-bottom-color: var(--text-h);
-}
-
-.mobile-tab .count { font-size: 11px; }
-
 /* List screen: listings beside applications. Equal columns — neither is the
    long read the profile used to be. */
 .split {
@@ -137,33 +108,26 @@
   border-right: 1px solid var(--border);
   padding: 32px 36px 80px;
   overflow-y: auto;
-  max-height: calc(100svh - 57px);
+  max-height: calc(100svh - var(--topbar-desk) - var(--nav-h) - 1px);
   min-width: 0;
 }
 
 .split-apps {
   padding: 32px 36px 80px;
   overflow-y: auto;
-  max-height: calc(100svh - 57px);
+  max-height: calc(100svh - var(--topbar-desk) - var(--nav-h) - 1px);
   min-width: 0;
 }
 
-/* Below this width the two panels can't sit side by side. Stacking them puts
-   the whole dump above the applications — a long scroll to reach the part you
-   act on — so the panels become tabs and the page keeps a single scroller. */
+/* Below this width the two panels can't sit side by side, and stacking them
+   would put all the listings above the applications. The overview shows the
+   applications, and the section bar reaches the rest. */
 @media (max-width: 1000px) {
   .shell { --topbar-h: 56px; }
   .topbar {
     height: var(--topbar-h);
     align-items: center;
     padding: 0 24px;
-  }
-
-  .mobile-tabs {
-    display: flex;
-    position: sticky;
-    top: var(--topbar-h);
-    z-index: 9;
   }
 
   .split { grid-template-columns: 1fr; }
@@ -174,8 +138,35 @@
   }
   .split-apps { max-height: none; overflow: visible; }
 
-  .list-screen[data-tab="apps"]  .split-leads { display: none; }
-  .list-screen[data-tab="leads"] .split-apps  { display: none; }
+  /* The overview is the applications alone at this width; the section bar
+     is how you reach the other two. */
+  .list-screen[data-section="overview"] .split-leads { display: none; }
+}
+
+/* A section with the whole screen to itself (SectionNav). */
+.section-view {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 36px 48px;
+}
+
+/* The profile is read, not scanned: a line length for reading. */
+.section-view.section-profile { max-width: 860px; }
+
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -8px;
+}
+
+/* Listings side by side once there's room for more than one. */
+.section-view.section-listings .lead-list:not(.is-filtered) {
+  display: grid;
+  /* min(): a phone narrower than one column gets one full-width column
+     rather than a card hanging off the edge. */
+  grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
 }
 
 /* Focus screen: one application, or the new-application form. */
@@ -198,7 +189,8 @@
   .topbar-nav .link-btn { padding: 8px 0; }
 
   .split-leads,
-  .split-apps  { padding: 22px 18px 64px; }
+  .split-apps,
+  .section-view { padding: 22px 18px 64px; }
 
   /* The trigger keeps its name until space runs out, then just the page icon —
      it is the only thing in the bar that opens something, so it stays. */
@@ -265,9 +257,6 @@
     align-items: flex-start;
     gap: 3px;
   }
-  /* The badge keeps its place beside a wrapping title — it's narrow enough,
-     and dropping it below would push the meta line off the first screen. */
-  .app-card-top { align-items: flex-start; }
 }
 
 /* Buttons and inputs are global primitives — see index.css */
@@ -656,19 +645,115 @@
 
 .meta-failed { color: var(--error); }
 
+/* Narrow cards: the stage and fit drop under the title. Beside it, with the
+   delete column taking its share too, they squeezed a title like "Backend
+   Engineer at Acme" into a column two words wide. Here rather than with the
+   other phone rules because it has to come after the card's own. */
+@media (max-width: 560px) {
+  .app-card-top { flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+  .app-card-title { flex-basis: 100%; }
+  .app-card-status { margin-left: 0; }
+}
+
+/* ── Applications as a table (the full-screen section) ────────── */
+
+.app-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.app-table th {
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border-strong);
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.app-th-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.app-th-btn:hover,
+.app-th-btn.is-active { color: var(--text-h); }
+
+/* Reserves the arrow's width so a header doesn't shift when it's chosen. */
+.app-th-arrow { display: inline-block; width: 1ch; }
+
+.app-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.app-row { cursor: pointer; transition: background 0.12s; }
+.app-row:hover { background: var(--bg-sunken); }
+
+.app-row-open {
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.app-cell-role { width: 38%; }
+.app-cell-company { color: var(--text); }
+.app-cell-none { color: var(--muted); }
+
+.app-cell-date {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.app-cell-delete { width: 1%; padding-top: 4px; padding-bottom: 4px; }
+
 /* ── Deleting an application ─────────────────────────────────── */
 
-/* The delete sits over the card's bottom-right corner, beside the meta line,
-   which is short and left-aligned — the top row already holds the status and
-   fit badge. It is a sibling of the card, so it needs the item to anchor it. */
-.app-item { position: relative; }
+/* The delete gets a column of its own beside the card rather than sitting
+   over it. Laid over the card's corner, a one-line card was too short to keep
+   it clear of the fit badge above, and its hover fill covered the badge's
+   edge. Beside the card it can't touch anything, however the title wraps.
+   The rule moves from the card to the item so it runs under both. */
+.app-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
 
-.app-item.has-delete .app-card-meta { padding-right: 40px; }
+.app-item > .app-card {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
 
 .app-card-delete {
-  position: absolute;
-  right: 4px;
-  bottom: 8px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -710,8 +795,8 @@
 
 @media (max-width: 700px) {
   /* A thumb-sized target; the card's bottom padding has room for it. */
-  .app-card-delete { width: 44px; height: 44px; right: 0; bottom: 2px; }
-  .app-item.has-delete .app-card-meta { padding-right: 48px; }
+  .app-card-delete { width: 44px; height: 44px; }
+  .app-item { gap: 2px; }
   .detail-topline { margin-bottom: 18px; }
   /* Same fix as the listings buttons: .btn-sm alone leaves a ~27px target. */
   .detail-topline .btn {

@@ -1,0 +1,70 @@
+/* ── The section bar, pinned to the bottom ───────────────────── */
+
+.section-nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  height: var(--nav-h);
+  padding: 0 16px env(safe-area-inset-bottom);
+  box-sizing: content-box;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.section-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 150px;
+  padding: 0 18px;
+  margin-top: -1px;
+  border: none;
+  /* The same idiom as the old phone tabs, turned upside down: a rule on the
+     edge that faces the content marks the one you're in. */
+  border-top: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.section-btn:hover { color: var(--text-h); }
+
+.section-btn.is-active {
+  color: var(--text-h);
+  border-top-color: var(--text-h);
+}
+
+.section-btn .count { font-size: 11px; }
+
+.section-glyph { flex-shrink: 0; }
+
+.section-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Phones: three equal thirds, icon over label, like any bottom bar. */
+@media (max-width: 700px) {
+  .section-nav { gap: 0; padding-left: 0; padding-right: 0; }
+  .section-btn {
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 4px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+  .section-btn .count { font-size: 10px; }
+}

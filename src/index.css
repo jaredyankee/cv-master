@@ -269,3 +269,17 @@ code {
 .dump-textarea:disabled,
 .api-key-input:disabled,
 .auth-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Read by screen readers, not drawn: a name for a column or control whose
+   meaning is obvious to the eye. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
