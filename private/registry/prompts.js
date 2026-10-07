@@ -135,8 +135,8 @@ fit_criteria.level — pick exactly one:
   picture (e.g. a referral, willingness to relocate).
 
 job_application (the built resume)
-  contact    From the dump's contact. title = the positioning headline if it
-             suits this role, else the candidate's most recent title.
+  contact    From the dump's contact. title = the exact title for the position in the JD.
+             if not found, the positioning headline if it suits this role, else the candidate's most recent title.
   summary    Two or three sentences assembled from positioning, experience, and
              skills that this posting cares about. No claims absent from the dump.
   experience Include roles relevant to the posting; most recent first. Each
