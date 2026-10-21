@@ -1,0 +1,160 @@
+/* ── Cover letter: paragraph bank and built letter ───────────── */
+
+.letter-bank {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.bank-intro,
+.bank-hint {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+
+.bank-hint { margin: 0 0 14px; }
+
+.bank-unwritten { color: var(--muted); font-style: italic; }
+
+.bank-subhead { margin-top: 26px; }
+
+.bank-kind {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-h);
+}
+
+.bank-where { color: var(--muted); }
+
+/* Angle chips are toggles: neutral off, accent outline on. */
+.angle-chip {
+  cursor: pointer;
+  font-family: var(--mono);
+}
+
+.angle-chip.is-on {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.angle-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.angle-custom {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  max-width: 340px;
+}
+
+.bank-add {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bank-paste {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.bank-paste-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bank-prompt-label {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+/* ── built letter ───────────────────────────────────────────── */
+
+.letter {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  background: var(--bg-raised);
+}
+
+@media (max-width: 700px) {
+  .letter { padding: 20px 16px; }
+}
+
+.letter-angle {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+.letter-angle strong { color: var(--text-h); font-weight: 600; }
+
+.letter-para { margin: 0 0 18px; }
+.letter-para:last-child { margin-bottom: 0; }
+
+.letter-text {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--text-h);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* A word that differs from what the user wrote. Underlined as well as
+   tinted, so it doesn't rely on colour alone. */
+.letter-changed {
+  background: var(--revision-bg);
+  color: var(--revision-note-color);
+  text-decoration: underline dotted var(--revision-border);
+  text-underline-offset: 3px;
+}
+
+.letter-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* The slot the bank couldn't fill. Looks unfinished on purpose. */
+.letter-missing {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px dashed var(--revision-border);
+  border-radius: var(--radius-sm);
+  background: var(--revision-bg);
+  color: var(--revision-note-color);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.letter-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.letter-empty {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 0 0 14px;
+}

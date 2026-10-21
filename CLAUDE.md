@@ -15,9 +15,13 @@ into a structured profile, then builds per-job resumes from pieces of that profi
    not written in.
 2. **Resumes are built, not generated.** A job application's resume is assembled
    from the resume dump. Every bullet must trace back to something the user said.
-3. **Don't write the cover letter.** Return an outline: mission/culture observations,
-   overlap between the dump and the JD, gaps, and optional short blurbs for tricky
-   phrasing. The user (or their own tool) writes the letter.
+3. **Cover letters are built, not generated.** A letter is assembled from the user's
+   paragraph bank: whole paragraphs, chosen and ordered for the posting. The only
+   permitted edit is verb tense, for flow between paragraphs. What the bank lacks
+   becomes a marked slot and a prompt for the user to write, never drafted text.
+   Proofreading flags mechanical problems (typos, run-ons, structure) as
+   revisions; it never touches the user's voice. Prompts for these features use
+   domain-neutral examples, so no one field's vocabulary leaks into everyone's output.
 4. **Flag hidden instructions.** If the JD contains an "AI filter" (e.g. "mention the
    color of our logo"), surface it explicitly in the cover-letter section.
 5. **Guard token spend.** For fit levels `Mismatch` and `Out of Reach`, the UI asks
@@ -297,6 +301,42 @@ to again. The UI never offers delete while the analysis is running: the row
 doesn't exist yet, so the delete would miss and the background function would
 write it anyway. A 404 on delete counts as done client-side.
 
+## Cover letters
+
+The **paragraph bank** is `resume_dumps.letter_blocks`: `[{ key, label, text,
+angles[] }]`. It sits on the dump row but outside the dump — `shapeDump` doesn't
+include it and a rebuild doesn't clear it, because the paragraphs were never
+part of `source_text`. It arrives with `GET /resume-dump` (no extra request on
+load); `PUT /cover-letter` saves it whole, normalized by
+`private/lib/letter.js` (`normalizeBlocks`, which keeps keys stable and
+unique — a built letter points back at its paragraphs by key). Angles are a
+fixed list in `src/lib/letterBank.js` plus anything the user types.
+Paragraphs can be pasted in bulk: `[key]` header lines, or blank-line
+separated. No model call.
+
+`POST /cover-letter-background` runs one of two jobs, writing the result *or
+the error* under a client-generated id so the poll always ends:
+
+- `{ action: 'review', reviewId }` → `resume_dumps.letter_review` (one slot).
+  Extraction model. Revisions must quote their paragraph exactly
+  (`normalizeReview` drops any that don't), since Accept is find-and-replace.
+  Accepted state is derived, not stored: a revision is done once its quote is
+  no longer in the paragraph.
+- `{ action: 'build', applicationId, buildId }` → `job_applications.cl_letter`.
+  Reasoning model. `normalizeLetter` drops unknown or repeated keys and
+  **reverts any paragraph whose words drift past a tense change**
+  (`withinTenseBudget`: LCS word diff, at most max(4, 15%) words). The prompt
+  asks for restraint; this makes it a rule. `[company]` / `[role]` are filled
+  in code from the analysis, not by the model. Each paragraph keeps `source`
+  so the UI highlights every changed word (`src/lib/letterDiff.js`). On
+  failure the previous letter is kept and `error` set beside it.
+
+The build reads the fit, so it is offered only once the analysis exists, and
+`Mismatch` / `Out of Reach` get an "are you sure?" first (rule 5). Editing goes
+through `PUT /job-application?id=…` with `{ cover_letter }`; a missing slot the
+user fills becomes `kind: 'written'`. The side column's outline is unchanged —
+it is analysis, the letter is the deliverable.
+
 ## Context-only entries
 
 Any entry in `experience`, `freelance` or `projects` can carry
@@ -324,8 +364,9 @@ so Cancel is a true discard and a failed save keeps the user's work on screen.
 
 ## Not built yet
 
-- The "are you sure?" guard for Mismatch / Out of Reach (fit and resume currently
-  come back in one call; the guard needs a fit-only first pass)
+- The "are you sure?" guard for Mismatch / Out of Reach on the resume (fit and
+  resume currently come back in one call; the guard needs a fit-only first
+  pass). The cover-letter build has it, since it runs after the fit exists.
 - The revise checklist's ticks persist only in React state — a reload loses them
 - More than one cached dump. `cached_dump` is a single slot; a second rebuild
   overwrites it (unless the outgoing dump is unreviewed — see above).

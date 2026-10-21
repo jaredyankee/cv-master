@@ -26,3 +26,20 @@ export const BUILD_PHRASES = [
     'Outlining the cover letter',
     'Finishing up',
 ]
+
+export const LETTER_PHRASES = [
+    'Reading the posting',
+    'Choosing an angle',
+    'Picking your paragraphs',
+    'Ordering the letter',
+    'Checking tense between paragraphs',
+    'Finishing up',
+]
+
+export const LETTER_REVIEW_PHRASES = [
+    'Reading your paragraphs',
+    'Checking spelling and punctuation',
+    'Looking for run-on sentences',
+    'Looking for angles you haven’t covered',
+    'Finishing up',
+]

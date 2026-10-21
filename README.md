@@ -10,7 +10,8 @@ You write about yourself once, freely and in whatever shape you like. CV Master 
 2. **Ingest.** A background function sends the text to Claude with a forced tool call, so the output always matches the profile schema. The model may reorganize and lightly reword for clarity, but it is instructed never to invent content.
 3. **Review.** Suggested edits appear Word-style: the original text highlighted and uneditable, the model's note, and an editable suggestion you can accept or ignore. Missing information comes back as questions with a text box.
 4. **Dashboard.** Your profile sits on the left. On the right you add job applications: a job description, optional notes, and any extra questions the posting asks.
-5. **Apply.** For each application the model returns a fit rating, a resume built from your profile, a cover-letter outline (mission, culture, points of overlap, gaps), answers to any questions the posting asks, and a warning if the posting hides an instruction meant to catch automated applicants. It does not write the cover letter.
+5. **Apply.** For each application the model returns a fit rating, a resume built from your profile, a cover-letter outline (mission, culture, points of overlap, gaps), answers to any questions the posting asks, and a warning if the posting hides an instruction meant to catch automated applicants.
+6. **Cover letter.** You keep a bank of paragraphs about yourself, in your own voice, tagged with the kinds of role each suits. On request, a letter is built from them for one application: paragraphs picked and ordered for the posting, with verb tense the only wording that may change. Gaps come back as marked slots for you to fill, never as written text. The bank can be proofread for typos, run-ons and structure, and suggests facets you could write about next.
 
 ## Bring your own key
 
@@ -90,11 +91,11 @@ Neither this nor the 256 KB request-body cap in `private/lib/limits.js` stops an
 
 ### Database
 
-Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_diffs` (one row per review pass), and `job_applications`, plus the enums `fit_level` and `job_application_status`. The column names can be read off the queries in `private/db/`. Migrations are hand-run SQL in `private/db/migrations/`.
+Run every file in `private/db/migrations/` (each is safe to re-run); `cover-letter.sql` adds the paragraph bank and built-letter columns. Four tables are expected: `users`, `resume_dumps` (one per user), `resume_dump_diffs` (one row per review pass), and `job_applications`, plus the enums `fit_level` and `job_application_status`. The column names can be read off the queries in `private/db/`. Migrations are hand-run SQL in `private/db/migrations/`.
 
 ## Status
 
-Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, returning-user detection, job applications (fit, built resume, cover-letter outline), and editing — every section of your profile and of each built resume can be corrected, reordered, or extended by hand.
+Working today: sign in / sign up, onboarding, AI ingestion, review, dashboard, returning-user detection, job applications (fit, built resume, cover-letter outline), built cover letters from your own paragraph bank, and editing — every section of your profile, each built resume and each letter can be corrected, reordered, or extended by hand.
 
 Not yet: a confirmation step before spending tokens on a Mismatch or Out of Reach role.
 

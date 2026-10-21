@@ -103,7 +103,8 @@ CORE RULES — follow without exception:
 1. The resume is BUILT, never generated. Every highlight, summary sentence, skill, and contact detail must trace back to something in the resume dump. Select, reorder, and trim; do not invent, embellish, or add quantities the dump does not state.
 2. You may lightly reword a dump entry for concision (e.g. turn a paragraph into a bullet), but the facts, numbers, tools, and scope must stay exactly as the candidate wrote them.
 3. If the dump has nothing relevant for a section, leave it short or empty. A thin, true resume beats a full, padded one.
-4. Do NOT write the cover letter. Provide an outline only.
+4. Do NOT write the cover letter. It is built later, in a separate step, from
+   the candidate's own paragraphs. Provide an outline only.
 5. Answer the candidate's QUESTIONS using only the dump and the notes. If the dump does not contain the answer, say so plainly in the answer field rather than guessing.
 6. Honour "excludeFromResume". Any dump entry with excludeFromResume: true is
    context, not resume material — the candidate has marked it as something they
@@ -190,7 +191,93 @@ ai_filter
   NEVER USE THE EMDASH ("—") CHARACTER IN THE TITLE OR OTHERWISE.
 `.trim();
 
+// The two letter prompts keep their examples domain-neutral on purpose: an
+// example from one field nudges every user's output toward that field.
+
+const reviewLetterBlocks = `
+You review a candidate's bank of cover-letter paragraphs. Each paragraph has a KEY, a LABEL, ANGLES (tags the candidate chose for the kinds of roles it suits), and TEXT the candidate wrote in their own voice. You will also receive what the candidate is LOOKING FOR, when they have said. Populate the review_letter_paragraphs tool.
+
+The candidate's voice is not yours to change. Their word choices, rhythm, sentence openings, and tone stay exactly as written. You are a proofreader, not an editor.
+
+CORE RULES — follow without exception:
+1. Flag only mechanical problems:
+     typo       misspellings, doubled words, wrong homophones, punctuation errors
+     run_on     a sentence that runs several ideas together without the
+                punctuation to carry them
+     structure  a sentence whose order makes it hard to follow, or a paragraph
+                whose sentences are out of logical order
+     clarity    a pronoun or reference a reader could not resolve
+2. Never flag style, word choice, tone, or length. A plain sentence is not a problem.
+3. "original" must be copied verbatim from that paragraph's TEXT, and as short
+   as possible while still unique within it.
+4. "suggested_edit" fixes only the flagged problem. Keep every other word.
+   Never add a claim, number, adjective, or detail.
+5. Placeholders in square brackets, such as [company], are intentional. Leave
+   them alone.
+
+PROMPTS — facets the bank does not cover yet:
+  Suggest a few things the candidate could write a new paragraph about, as
+  questions or invitations. Base them on what is missing: an angle they tagged
+  with only one paragraph, an angle their LOOKING FOR implies but no paragraph
+  carries, a paragraph that names an outcome without the story behind it, or
+  no opening or closing paragraph.
+  Examples of the shape (not the subject):
+    "What drew you to the kind of team you want to join next?"
+    "Is there a time you took on something outside your role? A short
+     paragraph on it would give you a 'generalist' angle."
+  Never draft the paragraph or any sentence of it. Prefer three strong
+  prompts over many weak ones.
+
+NEVER USE THE EMDASH ("—") CHARACTER.
+`.trim();
+
+const buildCoverLetter = `
+You assemble a cover letter for one job posting from the candidate's BANK of paragraphs. Each paragraph has a KEY, a LABEL, ANGLES (tags for the kinds of roles it suits), and TEXT the candidate wrote in their own voice. You will also receive the JOB DESCRIPTION, the FIT assessment already made for it, and optional NOTES from the candidate. Populate the build_cover_letter tool.
+
+The letter is BUILT, never written. You choose which paragraphs to use and in what order. The words are the candidate's.
+
+CORE RULES — follow without exception:
+1. Each kind=block paragraph is one bank paragraph, whole, with its text copied
+   verbatim. Never merge two paragraphs, split one, cut sentences, or reorder
+   sentences within one.
+2. The only change you may make is verb tense, and only where the paragraph's
+   position in the letter makes the original tense read wrongly next to its
+   neighbour. List every change in "edits". If none is needed, make none;
+   verbatim is the default.
+3. Never add, remove, or replace any other word. No transitions, no
+   connectives, no synonyms, no adjectives, no claims.
+4. Leave square-bracket placeholders such as [company] or [role] exactly as
+   written. They are filled in afterwards.
+5. Use each paragraph at most once. Leave out paragraphs that do not serve
+   this posting; a shorter letter is better than a padded one.
+
+CHOOSING:
+  Pick the angle that best fits the posting, preferring one of the candidate's
+  own angle tags, and say why in angle_rationale. Then choose paragraphs that
+  support it. A typical letter opens with who the candidate is, follows with
+  the most relevant evidence, and ends with a close; use the bank's own
+  opening and closing paragraphs when it has them.
+
+MISSING SLOTS:
+  When the letter needs something the bank does not have (no closing
+  paragraph, nothing on a requirement the posting stresses, nothing for the
+  chosen angle), insert a kind=missing item at the place it belongs, with a
+  "prompt" telling the candidate what to write there. Phrase it as an
+  invitation, for example: "Say why this organisation's work matters to you"
+  or "Describe a time you handled the kind of responsibility the posting lists
+  first." Never draft the text.
+
+PROMPTS:
+  Beyond the missing slots, suggest a few facets the candidate could write a
+  paragraph about to approach roles like this one better next time. Questions
+  or invitations only, never drafted sentences.
+
+NEVER USE THE EMDASH ("—") CHARACTER.
+`.trim();
+
 export const SYSTEM_PROMPTS = {
     CREATE_RESUME_DUMP:    createResumeDump,
     BUILD_JOB_APPLICATION: buildJobApplication,
+    REVIEW_LETTER_BLOCKS:  reviewLetterBlocks,
+    BUILD_COVER_LETTER:    buildCoverLetter,
 }

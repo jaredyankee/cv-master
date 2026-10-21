@@ -18,6 +18,10 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
  *   body: { job_application }
  *
+ * Save an edited cover letter:
+ *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
+ *   body: { cover_letter }
+ *
  * Move it along the user's lifecycle:
  *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
  *   body: { status }
@@ -26,9 +30,10 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   DELETE /job-application?id=<uuid> → { ok: true, id }
  *                                     404 when it doesn't exist or isn't theirs
  *
- * The two PUTs are separate paths on purpose. Editing the resume rewrites the
- * deliverable; changing the status records what happened to it. A single
- * handler taking both would let a status change carry a resume body.
+ * The PUTs are separate paths on purpose. Editing the resume or letter
+ * rewrites a deliverable; changing the status records what happened to it. A
+ * single handler taking all of them would let a status change carry a resume
+ * body.
  */
 export async function handler(event) {
     const cors = CORS(event);
@@ -74,22 +79,21 @@ export async function handler(event) {
             return json(400, { message: "Body is not valid JSON" });
         }
 
-        // Which write this is, decided by what the body carries. Sending both
-        // is a mistake worth naming rather than resolving by precedence.
-        const wantsStatus = body?.status !== undefined;
-        const wantsResume = body?.job_application !== undefined;
-        if (wantsStatus && wantsResume) {
-            return json(400, { message: "Send either job_application or status, not both" });
+        // Which write this is, decided by what the body carries. Sending more
+        // than one is a mistake worth naming rather than resolving by precedence.
+        const writes = [
+            ["status",          "job-application:STAT"],
+            ["job_application", "job-application:PUT"],
+            ["cover_letter",    "job-application:LETTER"],
+        ].filter(([field]) => body?.[field] !== undefined);
+        if (writes.length !== 1) {
+            return json(400, { message: "Body must carry exactly one of job_application, cover_letter or status" });
         }
-        if (!wantsStatus && !wantsResume) {
-            return json(400, { message: "Body must carry job_application or status" });
-        }
+        const [[field, route]] = writes;
 
         try {
-            const save = fnRegistry(wantsStatus ? "job-application:STAT" : "job-application:PUT");
-            const result = wantsStatus
-                ? await save(user.userId, params.id, body.status)
-                : await save(user.userId, params.id, body.job_application);
+            const save = fnRegistry(route);
+            const result = await save(user.userId, params.id, body[field]);
             if (!result.ok) return json(result.error === "Application not found" ? 404 : 400, { message: result.error });
             return json(200, { ok: true, data: result.application });
         } catch (err) {

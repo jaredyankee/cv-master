@@ -4,6 +4,7 @@ import StatusControl from './StatusControl'
 import Progress from '../common/Progress'
 import CopyButton from '../common/CopyButton'
 import EditableSection from '../common/EditableSection'
+import CoverLetterSection from './CoverLetterSection'
 import { TextField, TextAreaField, EntryListEditor } from '../common/fields'
 import { BUILD_PHRASES } from '../common/phrases'
 import { toRenderCvYaml } from '../../lib/resumeYaml'
@@ -255,8 +256,14 @@ function CoverLetter({ cl }) {
  *   statuses:      string[] — the lifecycle stages, in order
  *   onSetStatus:   async (status) => void — omit for read-only
  *   onDelete()     opens the confirm; omit to offer no delete
+ *   hasLetterBank: boolean — the user has cover letter paragraphs to build from
+ *   onBuildLetter() — starts building the cover letter; omit to offer no build
+ *   onSaveLetter:  async (coverLetter) => void — persists an edited letter
  */
-export default function ApplicationDetail({ application, onBack, onSaveResume, statuses = [], onSetStatus, onDelete }) {
+export default function ApplicationDetail({
+    application, onBack, onSaveResume, statuses = [], onSetStatus, onDelete,
+    hasLetterBank = false, onBuildLetter, onSaveLetter,
+}) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
     const state = analysisState(application)
 
@@ -339,6 +346,16 @@ export default function ApplicationDetail({ application, onBack, onSaveResume, s
                             <BuiltResume ja={ja} />
                         </Section>
                     ))}
+
+                    {/* Built on request, once the analysis exists: it reads the fit. */}
+                    {state === 'ready' && (
+                        <CoverLetterSection
+                            application={application}
+                            hasBank={hasLetterBank}
+                            onBuild={onBuildLetter}
+                            onSave={onSaveLetter}
+                        />
+                    )}
 
                     <Section label="Job description">
                         <Clamped text={jobDescription} long moreLabel="Show full description" />
