@@ -20,6 +20,7 @@ const makeId = () =>
 const DUMP_POLL_BUDGET_MS        = 3 * 60 * 1000
 const APPLICATION_POLL_BUDGET_MS = 5 * 60 * 1000
 const LEADS_POLL_BUDGET_MS       = 5 * 60 * 1000
+const LETTER_POLL_BUDGET_MS      = 4 * 60 * 1000
 
 /** The leads panel's state, or null if it couldn't be read. */
 async function fetchLeadState() {
@@ -75,6 +76,10 @@ function Workspace({ user, onSignOut }) {
     const [leadsForm, setLeadsForm]     = useState(null)   // { preferences, seeded } while the form is open
     const [leadsError, setLeadsError]   = useState(null)
     const [isLoading, setIsLoading]                   = useState(false)
+    // Cover letter paragraphs and their latest proofread. Arrive with the
+    // dump load; see private/db/cover-letter.js for why they aren't in it.
+    const [letterBank, setLetterBank]     = useState({ blocks: [], review: null })
+    const [letterReview, setLetterReview] = useState({ running: false, startedAt: null, error: null })
 
     // Dump lifecycle. `hasDump` is the row's existence, which is the only
     // thing that means "this user has dumped before" — a regenerate empties
@@ -137,6 +142,7 @@ function Workspace({ user, onSignOut }) {
                     dump_state = 'READY', source_text = '', cached_dump = null,
                     cached_at = null, provider: storedProvider = 'anthropic',
                     configured_providers = [],
+                    letter_blocks = [], letter_review = null,
                 } = result.data
 
                 setHasDump(true)
@@ -146,6 +152,7 @@ function Workspace({ user, onSignOut }) {
                 setProvider(storedProvider)
                 setConfiguredProviders(configured_providers)
                 setResumeDump(resume_dump)
+                setLetterBank({ blocks: letter_blocks ?? [], review: letter_review })
                 // keep the review payload so "Edit profile" can reopen it
                 setOnboardingResponse({ resume_dump, revisions, questions })
                 // Reloading mid-revise should land back on the same worklist.
@@ -386,6 +393,90 @@ function Workspace({ user, onSignOut }) {
         setLeads(prev => (prev
             ? { ...prev, leads: prev.leads.map(l => (l.applicationId === id ? { ...l, applicationId: null } : l)) }
             : prev))
+    }
+
+    /* ── Cover letter ───────────────────────────────────────── */
+
+    /** Saves the whole paragraph bank. Throws so the editor keeps the draft. */
+    async function handleSaveLetterBank(blocks) {
+        const res = await appRequest("/cover-letter", "PUT", null, { blocks })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        if (body?.data) setLetterBank(body.data)
+    }
+
+    /**
+     * Proofreads the bank in the background. The server writes the result,
+     * or the error, under our id, so the poll ends either way.
+     */
+    async function handleReviewLetterBank() {
+        const reviewId = makeId()
+        setLetterReview({ running: true, startedAt: Date.now(), error: null })
+        try {
+            const res = await appRequest("/cover-letter-background", "POST", null, { action: 'review', reviewId, provider })
+            if (!res.ok) {
+                let message = `Request failed (${res.status})`
+                try { message = (await res.json()).message ?? message } catch { /* no body */ }
+                throw new Error(message)
+            }
+            const bank = await pollUntil(LETTER_POLL_BUDGET_MS, async () => {
+                const poll = await appRequest("/cover-letter", "GET")
+                if (!poll.ok) return undefined
+                const body = await poll.json()
+                return body?.data?.review?.id === reviewId ? body.data : undefined
+            })
+            if (!bank) throw new Error("Timed out waiting for the check. It may still finish; reload to see it.")
+            setLetterBank(bank)
+            setLetterReview({ running: false, startedAt: null, error: null })
+        } catch (err) {
+            console.error("Letter review failed", err)
+            setLetterReview({ running: false, startedAt: null, error: err.message })
+        }
+    }
+
+    /** Builds one application's letter in the background and polls for it. */
+    async function handleBuildLetter(id) {
+        const buildId = makeId()
+        patchApplication(id, { letterPending: { startedAt: Date.now() }, letterError: null })
+        try {
+            const res = await appRequest("/cover-letter-background", "POST", null, {
+                action: 'build', applicationId: id, buildId, provider,
+            })
+            if (!res.ok) {
+                let message = `Request failed (${res.status})`
+                try { message = (await res.json()).message ?? message } catch { /* no body */ }
+                throw new Error(message)
+            }
+            const ready = await pollUntil(LETTER_POLL_BUDGET_MS, async () => {
+                const poll = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "GET")
+                if (!poll.ok) return undefined
+                const result = await poll.json()
+                return result?.data?.coverLetter?.id === buildId ? result.data : undefined
+            })
+            if (!ready) throw new Error("Timed out waiting for the letter. It may still finish; reload to check.")
+            patchApplication(id, { ...ready, letterPending: null, letterError: null })
+        } catch (err) {
+            console.error("Cover letter build failed", err)
+            patchApplication(id, { letterPending: null, letterError: err.message })
+        }
+    }
+
+    /** Persists an edited cover letter. Throws so the editor keeps the draft. */
+    async function handleSaveLetter(id, coverLetter) {
+        const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "PUT", null, {
+            cover_letter: coverLetter,
+        })
+        if (!res.ok) {
+            let message = `Save failed (${res.status})`
+            try { message = (await res.json()).message ?? message } catch { /* no body */ }
+            throw new Error(message)
+        }
+        const body = await res.json()
+        if (body?.data) patchApplication(id, { ...body.data, letterError: null })
     }
 
     /** The AI panel's contents. Fetched on open; see AiStatusDialog. */
@@ -653,6 +744,12 @@ function Workspace({ user, onSignOut }) {
                 onSaveLeadPreferences={handleSaveLeadPreferences}
                 onSearchLeads={handleSearchLeads}
                 onDismissLead={handleDismissLead}
+                letterBank={letterBank}
+                letterReview={letterReview}
+                onSaveLetterBank={handleSaveLetterBank}
+                onReviewLetterBank={handleReviewLetterBank}
+                onBuildLetter={handleBuildLetter}
+                onSaveLetter={handleSaveLetter}
                 user={user}
                 onSignOut={onSignOut}
                 dumpState={dumpState}

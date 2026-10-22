@@ -21,6 +21,13 @@ import {
     dismiss as dismissLead,
 } from "../objects/job-search.js";
 import { getAiStatus } from "../objects/ai-status.js";
+import {
+    getLetterBankState,
+    saveLetterBank,
+    reviewLetterBank,
+    buildCoverLetter,
+    saveCoverLetter,
+} from "../objects/cover-letter.js";
 
 const registry = new Map();
 
@@ -36,6 +43,12 @@ registry.set("job-application:LIST", listJobApplications);        // no id — a
 registry.set("job-application:PUT",  saveJobApplicationResume);   // user edits to the built resume
 registry.set("job-application:STAT", saveJobApplicationStatus);   // user moves it along their lifecycle
 registry.set("job-application:DEL",  removeJobApplication);       // user deletes it
+registry.set("job-application:LETTER", saveCoverLetter);          // user edits to the built cover letter
+
+registry.set("cover-letter:GET",    getLetterBankState);     // the paragraph bank and its latest review
+registry.set("cover-letter:PUT",    saveLetterBank);         // user edits to the bank
+registry.set("cover-letter:REVIEW", reviewLetterBank);       // background: proofread the bank
+registry.set("cover-letter:BUILD",  buildCoverLetter);       // background: build one application's letter
 
 registry.set("job-search:RUN",     runJobSearch);            // background: Perplexity + insert new leads
 registry.set("job-search:GET",     getSearchState);          // leads, preferences and run state

@@ -58,6 +58,8 @@ export const shapeApplication = (row) => ({
                 : null,
         }
         : null,
+    // Built on request, after the analysis — null until the user asks.
+    coverLetter: row.cl_letter ?? null,
 })
 
 // ── request building ─────────────────────────────────────────

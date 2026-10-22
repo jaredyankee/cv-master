@@ -25,7 +25,12 @@ export const CORS = (event, page = null) => {
 
     const headers = event.headers ?? {};
     const origin  = headers.origin ?? null;
-    const allowOrigin = origin && allowed.includes(origin) ? origin : null;
+    // Same-origin: the page and the function share a host. Browsers still
+    // send Origin on same-origin POST / PUT / DELETE, so without this every
+    // deploy preview's writes would be refused as a foreign origin. A page
+    // can't forge Origin, and Host is the host the request was sent to.
+    const sameOrigin = Boolean(origin && headers.host && origin === `https://${headers.host}`);
+    const allowOrigin = origin && (sameOrigin || allowed.includes(origin)) ? origin : null;
 
     const cors = {
         ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),

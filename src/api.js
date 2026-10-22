@@ -18,12 +18,12 @@ export const appRequest = async (endpoint, method, headers = {}, payload) => {
         }
     }
 
-    let baseUrl;
-    if (import.meta.env.VITE_CURRENT_ENVIRONMENT == "localenvironment") {
-        baseUrl = "http://localhost:8888/.netlify/functions";
-    } else {
-        baseUrl = "https://cvmaster-jy.netlify.app/.netlify/functions";
-    }
+    // Relative outside local dev, so every deploy (production, a deploy
+    // preview, a branch deploy) calls its own functions. A hardcoded
+    // production URL had previews running new UI against old functions.
+    const baseUrl = import.meta.env.VITE_CURRENT_ENVIRONMENT == "localenvironment"
+        ? "http://localhost:8888/.netlify/functions"
+        : "/.netlify/functions";
 
     const requestUrl = `${baseUrl}${endpoint}`;
     const token = await getAuthToken();

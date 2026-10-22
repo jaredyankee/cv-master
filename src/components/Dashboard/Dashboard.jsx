@@ -10,6 +10,7 @@ import ProfileDrawer from './ProfileDrawer'
 import DeleteApplicationDialog from './DeleteApplicationDialog'
 import AiStatusDialog from './AiStatusDialog'
 import SectionNav from './SectionNav'
+import LetterBankPanel from './LetterBankPanel'
 import { SECTIONS } from '../../lib/sections'
 import { providerInfo } from '../../lib/providers'
 import { useMediaQuery } from '../../lib/useMediaQuery'
@@ -83,6 +84,10 @@ function saveSection(section) {
  *   leadsForm / leadsError — the open preferences form, and the last search error
  *   onOpenLeadsForm(), onCloseLeadsForm(), onSaveLeadPreferences(p, key),
  *   onSearchLeads(), onDismissLead(id) — passed through to LeadsPanel
+ *   letterBank             — { blocks, review } — cover letter paragraphs
+ *   letterReview           — { running, startedAt, error } for the bank's proofread
+ *   onSaveLetterBank(blocks), onReviewLetterBank() — see LetterBankPanel
+ *   onBuildLetter(id), onSaveLetter(id, letter) — one application's cover letter
  */
 export default function Dashboard({
     resumeDump,
@@ -116,6 +121,12 @@ export default function Dashboard({
     onSaveLeadPreferences,
     onSearchLeads,
     onDismissLead,
+    letterBank = null,
+    letterReview = null,
+    onSaveLetterBank,
+    onReviewLetterBank,
+    onBuildLetter,
+    onSaveLetter,
 }) {
     // { mode: 'list' | 'new' | 'detail', id, lead } — `lead` is set when a new
     // application starts from a listing, so the form can carry its link.
@@ -134,6 +145,18 @@ export default function Dashboard({
     const [aiOpen, setAiOpen] = useState(false)
 
     const isRegenerating = dumpState !== 'READY'
+    const hasLetterBank = (letterBank?.blocks ?? []).some(b => b.text?.trim())
+
+    // Under the profile wherever it shows. Paragraphs are profile material,
+    // but not part of the dump, so a rebuild leaves them alone.
+    const letterPanel = onSaveLetterBank && (
+        <LetterBankPanel
+            bank={letterBank}
+            onSave={onSaveLetterBank}
+            onReview={onReviewLetterBank}
+            review={letterReview}
+        />
+    )
 
     /** The regenerate control plus the cached-profile chip, under the panel title. */
     const dumpHeader = (
@@ -306,6 +329,7 @@ export default function Dashboard({
                 header={dumpHeader}
                 onResume={onResumeRegeneration}
             />
+            {letterPanel}
         </ProfileDrawer>
     )
 
@@ -324,6 +348,9 @@ export default function Dashboard({
                             statuses={statuses}
                             onSetStatus={onSetStatus && (s => onSetStatus(selected.id, s))}
                             onDelete={askDelete && (() => askDelete(selected))}
+                            hasLetterBank={hasLetterBank}
+                            onBuildLetter={onBuildLetter && (() => onBuildLetter(selected.id))}
+                            onSaveLetter={onSaveLetter && (l => onSaveLetter(selected.id, l))}
                           />}
                 </main>
                 {sectionNav}
@@ -411,6 +438,7 @@ export default function Dashboard({
                                     header={dumpHeader}
                                     onResume={onResumeRegeneration}
                                 />
+                                {!isRegenerating && letterPanel}
                             </>
                         )}
                     </main>

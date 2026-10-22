@@ -89,6 +89,11 @@ export const getResumeDump = async (user_id) => {
         source_text: row.source_text ?? null,
         cached_dump: row.cached_dump ?? null,
         cached_at:   row.cached_at ?? null,
+        // The cover-letter bank rides along with the load rather than costing
+        // its own request on every page view. Not part of the dump: see
+        // private/db/cover-letter.js.
+        letter_blocks: row.letter_blocks ?? [],
+        letter_review: row.letter_review ?? null,
         ...(await keyStatusFields(user_id)),
     }
 }

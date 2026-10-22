@@ -82,6 +82,8 @@ export const getResumeDumpByUser = async (user_id) => {
             d.source_text,
             d.cached_dump,
             d.cached_at,
+            d.letter_blocks,
+            d.letter_review,
             diff.id        AS diff_id,
             diff.finalized AS diff_finalized,
             diff.revisions,
