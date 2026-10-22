@@ -4,7 +4,11 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  # 22, not 20: openai and kysely declare node >=22, and on 20 `npm ci` dies
+  # resolving the better-auth peer tree ("Cannot read properties of null
+  # (reading 'edgesOut')"). Cached node_modules can hide that on a site's
+  # usual branch; a fresh deploy preview has no cache and fails.
+  NODE_VERSION = "22"
 
 # Netlify's default function bundler contradicts itself on any dependency with
 # a conditional `exports` map. It traces our `import` with nft and copies the
