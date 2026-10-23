@@ -783,7 +783,20 @@ function Workspace({ user, onSignOut }) {
     )
 }
 
+/**
+ * `npm run demo`: the workspace on fictional data, with no sign-in. MODE is a
+ * build-time constant, so production builds drop this path entirely.
+ */
+const DEMO = import.meta.env.MODE === "demo"
+const DEMO_USER = { id: "demo-user", name: "Jordan Avery", email: "jordan.avery@example.com" }
+
 function App () {
+    return DEMO
+        ? <Workspace user={DEMO_USER} onSignOut={() => window.location.reload()} />
+        : <SignedInApp />
+}
+
+function SignedInApp () {
     const session = authClient.useSession()          // { data, isPending, error }
     const user    = session.data?.user ?? null
 

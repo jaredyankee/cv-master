@@ -18,6 +18,14 @@ export const appRequest = async (endpoint, method, headers = {}, payload) => {
         }
     }
 
+    // `npm run demo`: fictional data, served in the browser. MODE is a
+    // build-time constant, so production bundles drop this branch and the
+    // demo files with it.
+    if (import.meta.env.MODE === "demo") {
+        const { demoRequest } = await import("./demo/server.js");
+        return demoRequest(endpoint, method, payload);
+    }
+
     // Relative outside local dev, so every deploy (production, a deploy
     // preview, a branch deploy) calls its own functions. A hardcoded
     // production URL had previews running new UI against old functions.

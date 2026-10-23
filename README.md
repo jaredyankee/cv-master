@@ -52,6 +52,8 @@ npx netlify dev           # serves the Vite app and the functions together
 
 `npm run dev` runs the Vite app alone, which is fine for UI work but has no functions behind it.
 
+`npm run demo` runs the app on fictional data (a health information specialist, with made-up employers, applications, listings and cover-letter paragraphs) with no sign-in, database or model calls. It is for screenshots and walkthroughs; edits last until you reload. The data lives in `src/demo/` and is left out of production builds.
+
 ### Environment
 
 | Variable | Where | Purpose |

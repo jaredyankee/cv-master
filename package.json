@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "demo": "vite --mode demo",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
