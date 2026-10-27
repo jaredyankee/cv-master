@@ -1,0 +1,25 @@
+/* ── Hiring manager's read ───────────────────────────────────── */
+
+.hm-verdict { margin-bottom: 10px; }
+
+.hm-summary { margin-bottom: 4px; }
+
+/* The posting requirement a point answers: quiet, quoted. */
+.hm-req {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.hm-req::before { content: 'Posting: '; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.hm-empty,
+.hm-stale {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.hm-stale { color: var(--revision-note-color); }

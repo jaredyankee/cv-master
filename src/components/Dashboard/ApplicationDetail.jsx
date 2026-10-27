@@ -5,6 +5,7 @@ import Progress from '../common/Progress'
 import CopyButton from '../common/CopyButton'
 import EditableSection from '../common/EditableSection'
 import CoverLetterSection from './CoverLetterSection'
+import HiringReview from './HiringReview'
 import { TextField, TextAreaField, EntryListEditor } from '../common/fields'
 import { BUILD_PHRASES } from '../common/phrases'
 import { toRenderCvYaml } from '../../lib/resumeYaml'
@@ -259,10 +260,11 @@ function CoverLetter({ cl }) {
  *   hasLetterBank: boolean — the user has cover letter paragraphs to build from
  *   onBuildLetter() — starts building the cover letter; omit to offer no build
  *   onSaveLetter:  async (coverLetter) => void — persists an edited letter
+ *   onReviewResume() — runs the hiring manager review again; omit for read-only
  */
 export default function ApplicationDetail({
     application, onBack, onSaveResume, statuses = [], onSetStatus, onDelete,
-    hasLetterBank = false, onBuildLetter, onSaveLetter,
+    hasLetterBank = false, onBuildLetter, onSaveLetter, onReviewResume,
 }) {
     const { jobDescription = '', notes = '', questions = [], response = null, createdAt } = application
     const state = analysisState(application)
@@ -373,6 +375,10 @@ export default function ApplicationDetail({
                             )}
                         </section>
                     )}
+
+                    {/* Between the verdict on you and the plan for the letter: the
+                        reader's view of what you're about to send. */}
+                    {ja && <HiringReview application={application} onReview={onReviewResume} />}
 
                     {cl && <Section label="Cover letter outline"><CoverLetter cl={cl} /></Section>}
 

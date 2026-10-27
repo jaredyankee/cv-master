@@ -88,6 +88,7 @@ function saveSection(section) {
  *   letterReview           — { running, startedAt, error } for the bank's proofread
  *   onSaveLetterBank(blocks), onReviewLetterBank() — see LetterBankPanel
  *   onBuildLetter(id), onSaveLetter(id, letter) — one application's cover letter
+ *   onReviewResume(id)     — re-run the hiring manager review of a built resume
  */
 export default function Dashboard({
     resumeDump,
@@ -127,6 +128,7 @@ export default function Dashboard({
     onReviewLetterBank,
     onBuildLetter,
     onSaveLetter,
+    onReviewResume,
 }) {
     // { mode: 'list' | 'new' | 'detail', id, lead } — `lead` is set when a new
     // application starts from a listing, so the form can carry its link.
@@ -351,6 +353,7 @@ export default function Dashboard({
                             hasLetterBank={hasLetterBank}
                             onBuildLetter={onBuildLetter && (() => onBuildLetter(selected.id))}
                             onSaveLetter={onSaveLetter && (l => onSaveLetter(selected.id, l))}
+                            onReviewResume={onReviewResume && (() => onReviewResume(selected.id))}
                           />}
                 </main>
                 {sectionNav}

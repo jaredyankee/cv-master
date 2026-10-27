@@ -337,6 +337,25 @@ through `PUT /job-application?id=…` with `{ cover_letter }`; a missing slot th
 user fills becomes `kind: 'written'`. The side column's outline is unchanged —
 it is analysis, the letter is the deliverable.
 
+## Hiring manager review
+
+After the analysis row is written, `createJobApplication` runs a second,
+separate call in the same background invocation: `reviewBuiltResume`
+(`private/objects/hiring-review.js`) reads the **built resume and the JD only**
+— never the dump — as the role's hiring manager would. Separate rather than
+folded into the build because a model grading its own selection goes easy on
+it, and leaving the dump out both keeps it honest (it can't fill in what the
+resume omits) and keeps the call small. Extraction-size model.
+
+Stored in `job_applications.hm_review`: `{ id, reviewedAt, signature, verdict,
+summary, strengths[], concerns[] }`. Concerns carry a question, never
+replacement text (rule 1). `signature` fingerprints the reviewed resume
+(`private/lib/signature.js`, mirrored in `src/lib/signature.js`) so the UI
+says when it has been edited since. `Mismatch` / `Out of Reach` are skipped
+automatically (rule 5). `POST /resume-review-background { applicationId,
+reviewId }` re-runs it on request; the automatic pass uses id `"auto"`. A
+failed review never fails the application.
+
 ## Context-only entries
 
 Any entry in `experience`, `freelance` or `projects` can carry

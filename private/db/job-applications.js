@@ -184,3 +184,14 @@ export const listJobApplications = async (user_id) => {
         ORDER BY created_at DESC
     `
 }
+
+/** Writes the hiring manager review for one application. Scoped to the owner. */
+export const updateHiringReview = async (user_id, id, review) => {
+    const [row] = await sql`
+        UPDATE job_applications SET
+            hm_review = ${JSON.stringify(review)}::jsonb
+        WHERE id = ${id} AND user_id = ${user_id}
+        RETURNING *
+    `
+    return row ?? null
+}

@@ -358,3 +358,45 @@ export const COVER_LETTER_TOOL = {
         required: ['angle', 'angle_rationale', 'paragraphs', 'prompts'],
     },
 }
+
+// ── Hiring manager review ────────────────────────────────────
+// A second read of the BUILT resume, against the posting only. Mirrors
+// HiringReview in src/schemas/jobApplication.js.
+
+export const REVIEW_VERDICTS = ['Would interview', 'Maybe', 'Would pass']
+
+export const HIRING_REVIEW_TOOL = {
+    name: 'review_resume',
+    description: 'Review a resume against a job posting as the hiring manager for the role.',
+    input_schema: {
+        type: 'object',
+        properties: {
+            verdict: { type: 'string', enum: REVIEW_VERDICTS },
+            summary: { type: 'string', description: 'Two or three sentences: your honest first impression and the deciding reason.' },
+            strengths: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        point:       { type: 'string', description: 'What on the resume works for this role.' },
+                        requirement: { type: 'string', description: 'The posting requirement it answers, quoted or closely paraphrased.' },
+                    },
+                    required: ['point', 'requirement'],
+                },
+            },
+            concerns: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        point:       { type: 'string', description: 'What is missing, buried, unclear or unconvincing.' },
+                        requirement: { type: 'string', description: 'The posting requirement it bears on; empty if none.' },
+                        question:    { type: 'string', description: 'A question for the candidate whose answer could resolve it. Never a rewritten bullet.' },
+                    },
+                    required: ['point', 'question'],
+                },
+            },
+        },
+        required: ['verdict', 'summary', 'strengths', 'concerns'],
+    },
+}

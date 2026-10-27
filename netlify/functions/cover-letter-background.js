@@ -1,9 +1,8 @@
 import { fnRegistry } from "../../private/registry/registry.js";
 import { CORS } from "../../private/cors/cors.js";
 import { requireUser } from "../../private/lib/auth.js";
-import { getApiKey } from "../../private/db/users.js";
-import { normalizeProvider } from "../../private/lib/providers/index.js";
 import { bodyTooLarge } from "../../private/lib/limits.js";
+import { resolveApiKey } from "../../private/lib/request-key.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -64,20 +63,7 @@ export async function handler(event) {
         return { statusCode: 400, body: JSON.stringify({ message: "applicationId and buildId must be UUIDs" }) };
     }
 
-    // BYOK. Header first, then the key stored for the provider the user
-    // asked for — never another provider's key against this one's endpoint.
-    const requested = normalizeProvider(body.provider ?? event.headers["x-api-provider"]);
-    let provider = requested;
-    let apiKey = (event.headers["x-api-key"] ?? "").trim();
-    if (!apiKey) {
-        try {
-            const stored = await getApiKey(user.userId, requested);
-            if (stored.apiKey) { apiKey = stored.apiKey; provider = stored.provider; }
-        } catch (err) {
-            console.error("cover-letter-background: could not read stored API key:", err.message);
-        }
-    }
-    if (!apiKey && provider === "anthropic") apiKey = (process.env.ANTHROPIC_API_KEY ?? "").trim();
+    const { apiKey, provider } = await resolveApiKey(event, body, user.userId, "cover-letter-background");
     if (!apiKey) {
         console.error(`cover-letter-background: no ${provider} key available for this user`);
         return { statusCode: 400, body: JSON.stringify({ message: `No ${provider} API key on file` }) };
