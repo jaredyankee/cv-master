@@ -7,6 +7,7 @@
  * Background jobs "finish" after a short delay so the progress UI shows.
  */
 import * as F from './fixtures'
+import { signature } from '../lib/signature'
 
 const clone = v => structuredClone(v)
 const JOB_DELAY_MS = 4000
@@ -21,6 +22,7 @@ const state = {
     // id → { readyAt, value } for background work still "running"
     pendingApps: new Map(),
     pendingLetters: new Map(),
+    pendingReviews: new Map(),
     pendingReview: null,
     run: { startedAt: new Date(Date.now() - 86400000).toISOString(), finishedAt: new Date(Date.now() - 86000000).toISOString(), readyAt: 0 },
 }
@@ -56,6 +58,13 @@ function settle() {
         if (app) app.coverLetter = job.value
         state.pendingLetters.delete(id)
     }
+    for (const [id, job] of state.pendingReviews) {
+        if (job.readyAt > now) continue
+        const app = state.apps.find(a => a.id === id)
+        // Signed against the resume as it is now, edits included.
+        if (app) app.hmReview = { ...job.value, signature: signature(app.response.job_application) }
+        state.pendingReviews.delete(id)
+    }
     if (!state.run.finishedAt && state.run.readyAt <= now) {
         state.run.finishedAt = new Date().toISOString()
     }
@@ -83,6 +92,11 @@ function analyse({ id, jobDescription, notes = '', questions = [] }) {
             answers: questions.map(q => ({ question: q, answer: 'Your profile does not say; answer this one yourself.' })),
         },
         coverLetter: null,
+        // The automatic read, as if it had run right after the analysis.
+        hmReview: {
+            ...clone(template.hmReview),
+            reviewedAt: new Date().toISOString(),
+        },
     }
 }
 
@@ -195,6 +209,21 @@ export async function demoRequest(endpoint, method, payload) {
             state.apps = state.apps.filter(a => a.id !== q.id)
             state.leads = state.leads.map(l => (l.applicationId === q.id ? { ...l, applicationId: null } : l))
             return reply(200, { ok: true, id: q.id })
+
+        case 'POST /resume-review-background': {
+            const app = state.apps.find(a => a.id === payload.applicationId)
+            // A long shot reviewed on request reads as a pass; anything else
+            // gets its canned read back, or the Summit Valley one.
+            const canned = F.REVIEWS[payload.applicationId]
+                ?? (['Mismatch', 'Out of Reach'].includes(app?.response?.fit_criteria?.level)
+                    ? F.REVIEWS['00000000-0000-4000-8000-000000000003']
+                    : F.REVIEWS['00000000-0000-4000-8000-000000000002'])
+            if (app) state.pendingReviews.set(app.id, {
+                readyAt: Date.now() + JOB_DELAY_MS,
+                value: { ...clone(canned), id: payload.reviewId, reviewedAt: new Date().toISOString() },
+            })
+            return reply(202)
+        }
 
         case 'GET /cover-letter':
             return reply(200, { ok: true, data: { blocks: clone(state.blocks), review: clone(state.review) } })

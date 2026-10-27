@@ -13,6 +13,7 @@ import {
     listStatusValues,
 } from "../db/job-applications.js"
 import { linkLeadToApplication } from "../db/job-leads.js"
+import { reviewBuiltResume, SKIP_AUTO_REVIEW } from "./hiring-review.js"
 // Namespaced: this module already has its own lighter `str` for the AI-output
 // path, which must not gain the length caps meant for user-submitted edits.
 import * as n from "../lib/normalize.js"
@@ -60,6 +61,8 @@ export const shapeApplication = (row) => ({
         : null,
     // Built on request, after the analysis — null until the user asks.
     coverLetter: row.cl_letter ?? null,
+    // The hiring manager's read of the built resume; runs after the analysis.
+    hmReview: row.hm_review ?? null,
 })
 
 // ── request building ─────────────────────────────────────────
@@ -234,6 +237,20 @@ export const createJobApplication = async (apiKey, payload, provider) => {
             await linkLeadToApplication(userId, leadId, row.id)
         } catch (err) {
             console.error(`Could not link lead to application: ${err?.message ?? err}`)
+        }
+    }
+
+    // The hiring manager's read follows in the same invocation, once the row
+    // exists: the analysis is what the user asked for and is already saved,
+    // so the review can only add to it. Skipped for long shots (rule 5); the
+    // UI offers it on request there.
+    if (!SKIP_AUTO_REVIEW.has(fields.fit_level)) {
+        try {
+            const reviewed = await reviewBuiltResume(apiKey, { userId, applicationId: row.id, reviewId: "auto" }, provider)
+            if (reviewed.ok) return { ok: true, application: reviewed.application }
+            console.error(`Hiring manager review failed: ${reviewed.error}`)
+        } catch (err) {
+            console.error(`Hiring manager review failed: ${err?.message ?? err}`)
         }
     }
 

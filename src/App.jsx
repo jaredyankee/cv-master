@@ -1,6 +1,7 @@
 import { appRequest } from "./api"
 import { pollUntil } from "./lib/poll"
 import { runOutcome } from "./lib/searchRun"
+import { WARN_ON_FIT } from "./schemas/jobApplication"
 import { authClient, AUTH_CONFIGURED } from "./auth"
 import { useEffect, useState } from "react"
 import AuthForm from "./components/Auth/AuthForm"
@@ -21,6 +22,7 @@ const DUMP_POLL_BUDGET_MS        = 3 * 60 * 1000
 const APPLICATION_POLL_BUDGET_MS = 5 * 60 * 1000
 const LEADS_POLL_BUDGET_MS       = 5 * 60 * 1000
 const LETTER_POLL_BUDGET_MS      = 4 * 60 * 1000
+const REVIEW_POLL_BUDGET_MS      = 3 * 60 * 1000
 
 /** The leads panel's state, or null if it couldn't be read. */
 async function fetchLeadState() {
@@ -465,6 +467,41 @@ function Workspace({ user, onSignOut }) {
         }
     }
 
+    /**
+     * Polls one application until its review satisfies `isOurs`, showing
+     * progress meanwhile. Shared by the automatic pass and "Review again".
+     */
+    async function watchReview(id, isOurs) {
+        patchApplication(id, { reviewPending: { startedAt: Date.now() }, reviewError: null })
+        const ready = await pollUntil(REVIEW_POLL_BUDGET_MS, async () => {
+            const poll = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "GET")
+            if (!poll.ok) return undefined
+            const result = await poll.json()
+            return isOurs(result?.data?.hmReview) ? result.data : undefined
+        })
+        patchApplication(id, ready
+            ? { ...ready, reviewPending: null, reviewError: null }
+            : { reviewPending: null, reviewError: "Timed out waiting for the review. It may still finish; reload to check." })
+    }
+
+    /** Re-runs the hiring manager review on the resume as it is now. */
+    async function handleReviewResume(id) {
+        const reviewId = makeId()
+        try {
+            const res = await appRequest("/resume-review-background", "POST", null, { applicationId: id, reviewId, provider })
+            if (!res.ok) {
+                let message = `Request failed (${res.status})`
+                try { message = (await res.json()).message ?? message } catch { /* no body */ }
+                throw new Error(message)
+            }
+        } catch (err) {
+            console.error("Resume review failed to start", err)
+            patchApplication(id, { reviewError: err.message })
+            return
+        }
+        await watchReview(id, review => review?.id === reviewId)
+    }
+
     /** Persists an edited cover letter. Throws so the editor keeps the draft. */
     async function handleSaveLetter(id, coverLetter) {
         const res = await appRequest(`/job-application?id=${encodeURIComponent(id)}`, "PUT", null, {
@@ -673,6 +710,11 @@ function Workspace({ user, onSignOut }) {
 
             if (ready) {
                 patchApplication(id, { ...ready, error: null })
+                // The hiring manager review runs in the same background call
+                // after the row is written, so it lands a little later.
+                if (!ready.hmReview && !WARN_ON_FIT.has(ready.response?.fit_criteria?.level)) {
+                    watchReview(id, review => review?.id === "auto")
+                }
                 // Started from a listing: the server linked the lead once the
                 // row existed, so re-read the panel to mark it started.
                 if (input.leadId) fetchLeadState().then(state => { if (state) setLeads(state) })
@@ -750,6 +792,7 @@ function Workspace({ user, onSignOut }) {
                 onReviewLetterBank={handleReviewLetterBank}
                 onBuildLetter={handleBuildLetter}
                 onSaveLetter={handleSaveLetter}
+                onReviewResume={handleReviewResume}
                 user={user}
                 onSignOut={onSignOut}
                 dumpState={dumpState}

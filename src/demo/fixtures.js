@@ -4,6 +4,8 @@
  * links point at example.com. Loaded only in `npm run demo`.
  */
 
+import { signature } from '../lib/signature'
+
 const DAY = 24 * 60 * 60 * 1000
 const ago = days => new Date(Date.now() - days * DAY).toISOString()
 // Postings carry a calendar date, not a timestamp.
@@ -196,12 +198,62 @@ const pinegroveLetter = (() => {
     }
 })()
 
-function application({ id, days, status, company, title, jd, notes = '', questions = [], response, coverLetter = null }) {
+// The hiring manager's read for an application, signed against its resume
+// so the demo doesn't show it as out of date.
+function review(response, days, fields) {
+    return {
+        id: 'auto', reviewedAt: ago(days),
+        signature: signature(response.job_application),
+        ...fields,
+    }
+}
+
+function application({ id, days, status, company, title, jd, notes = '', questions = [], response, coverLetter = null, hmReview = null }) {
     return {
         id, createdAt: ago(days), updatedAt: ago(Math.max(0, days - 1)), status,
         companyName: company, jobTitle: title, jobDescription: jd, notes, questions,
         response, coverLetter,
+        hmReview: hmReview ? review(response, days, hmReview) : null,
     }
+}
+
+/** Canned reads, keyed by application id. Long shots get none: they're skipped. */
+export const REVIEWS = {
+    '00000000-0000-4000-8000-000000000001': {
+        verdict: 'Would interview',
+        summary: 'Volume, authorization checks and training are exactly what this lead does all day, and they are the first three things I read. I would want to hear how you handle the hard requests before I hand you a team.',
+        strengths: [
+            { point: '600+ requests a month with every authorization verified is the core of this job, stated with a number.', requirement: 'Process and audit release-of-information requests' },
+            { point: 'Training six new hires is real evidence you can bring a team along.', requirement: 'Train and support a team of four ROI specialists' },
+        ],
+        concerns: [
+            { point: 'Nothing shows judgement on difficult disclosures, which is what separates a lead from a specialist.', requirement: 'Handle complex or sensitive requests and escalate where appropriate', question: 'Have you handled a subpoena, a request involving a minor, or a disputed authorization? What did you do?' },
+            { point: 'Disclosure accounting and retention schedules are listed duties and never appear.', requirement: 'Maintain disclosure accounting and retention schedules', question: 'Do you keep the accounting of disclosures or work to a retention schedule today?' },
+        ],
+    },
+    '00000000-0000-4000-8000-000000000002': {
+        verdict: 'Maybe',
+        summary: 'Strong hands-on record across every function I supervise, and the deficiency turnaround is the kind of metric I report on. But I am hiring a supervisor and the resume never shows you supervising.',
+        strengths: [
+            { point: 'Cutting chart closure from 21 days to 9 is a clean, measurable operations win.', requirement: 'Monitor productivity and quality metrics' },
+            { point: 'The EHR migration validation work maps well to optimization projects with IT.', requirement: 'Lead EHR optimization projects with IT' },
+        ],
+        concerns: [
+            { point: 'No direct reports, scheduling or performance conversations anywhere on the page.', requirement: '2+ years of supervisory experience preferred', question: 'Have you covered for a supervisor, set schedules, or given feedback to staff you trained?' },
+            { point: 'The deficiency result is the strongest line for this role but sits third under Riverbend.', requirement: 'Monitor productivity and quality metrics', question: 'Would you lead with the deficiency result for supervisor roles?' },
+        ],
+    },
+    '00000000-0000-4000-8000-000000000003': {
+        verdict: 'Would pass',
+        summary: 'Solid records background, but the certification is a hard requirement here and the resume shows coding as a side skill rather than the job.',
+        strengths: [
+            { point: 'ICD-10-CM and CPT are listed, so the vocabulary is there.', requirement: 'Assign ICD-10-CM and CPT codes' },
+        ],
+        concerns: [
+            { point: 'No CCS or CPC.', requirement: 'CCS or CPC required', question: 'Are you scheduled to sit a coding exam? If so, when?' },
+            { point: 'No evidence of assigning codes as a primary duty.', requirement: '2+ years of outpatient coding', question: 'How much of your current week is spent coding, if any?' },
+        ],
+    },
 }
 
 export const APPLICATIONS = [
@@ -367,6 +419,11 @@ Applicants: to show you read this posting, mention the name of our clinic mascot
         },
     }),
 ]
+
+// Every application with a canned read gets it; the long shots stay unreviewed.
+for (const app of APPLICATIONS) {
+    if (REVIEWS[app.id]) app.hmReview = review(app.response, 3, REVIEWS[app.id])
+}
 
 // ── listings ─────────────────────────────────────────────────
 

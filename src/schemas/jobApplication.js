@@ -102,6 +102,29 @@
  * @property {AIFilter | null} ai_filter - null if no filter detected
  */
 
+/**
+ * The hiring manager's read of the built resume, against the posting only.
+ * Mirrors HIRING_REVIEW_TOOL in private/registry/schema.js. Concerns carry a
+ * question for the candidate, never rewritten text.
+ *
+ * @typedef {Object} HiringReview
+ * @property {string} id          - "auto" for the pass after the analysis, else client-generated
+ * @property {string} reviewedAt
+ * @property {string} signature   - fingerprint of the resume reviewed (src/lib/signature.js)
+ * @property {'Would interview' | 'Maybe' | 'Would pass'} verdict
+ * @property {string} summary
+ * @property {{ point: string, requirement: string }[]} strengths
+ * @property {{ point: string, requirement: string, question: string }[]} concerns
+ * @property {string} [error]     - set when the latest review failed
+ */
+
+/** Verdict → the fit-level color it shares, so the side column reads as one scale. */
+export const VERDICT_META = {
+  'Would interview': { cssVar: 'var(--fit-strong-match)' },
+  'Maybe':           { cssVar: 'var(--fit-reach)' },
+  'Would pass':      { cssVar: 'var(--fit-mismatch)' },
+}
+
 export const FIT_LEVELS = /** @type {const} */ ([
   'Mismatch',
   'Out of Reach',
