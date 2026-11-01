@@ -189,7 +189,7 @@ export async function demoRequest(endpoint, method, payload) {
             return reply(400, { message: 'Rebuilding the profile is turned off in the demo.' })
 
         case 'GET /job-application': {
-            if (!q.id) return reply(200, { applications: clone(state.apps), statuses: F.STATUSES })
+            if (!q.id) return reply(200, { applications: clone(state.apps), statuses: F.STATUSES, nextOffset: null })
             const app = state.apps.find(a => a.id === q.id)
             return reply(200, app ? { ready: true, data: clone(app) } : { ready: false })
         }

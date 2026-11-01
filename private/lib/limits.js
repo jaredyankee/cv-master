@@ -45,3 +45,15 @@ export function bodyTooLarge(event, headers = {}, limit = MAX_BODY_BYTES) {
         }),
     }
 }
+
+/**
+ * Largest response body a list endpoint should build.
+ *
+ * Lambda refuses to return more than 6 MB, and fails *after* the function has
+ * done its work — the client sees an opaque error, not a smaller page. Lists
+ * stop well short of that and hand back a cursor for the rest.
+ */
+export const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+
+/** Rows per list page, and the most a client may ask for. */
+export const LIST_PAGE_SIZE = 100

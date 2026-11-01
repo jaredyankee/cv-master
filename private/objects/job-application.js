@@ -17,6 +17,7 @@ import { reviewBuiltResume, SKIP_AUTO_REVIEW } from "./hiring-review.js"
 // Namespaced: this module already has its own lighter `str` for the AI-output
 // path, which must not gain the length caps meant for user-submitted edits.
 import * as n from "../lib/normalize.js"
+import { LIST_PAGE_SIZE, MAX_RESPONSE_BYTES } from "../lib/limits.js"
 
 // Fit assessment + resume assembly is judgment-heavy, so this uses the
 // current Opus with adaptive thinking (on by default there). Forced tool_choice
@@ -372,18 +373,41 @@ export const removeJobApplication = async (userId, id) => {
 }
 
 /**
- * All of the user's applications, newest first, shaped for the UI — plus the
- * statuses they can be moved between.
+ * One page of the user's applications, newest first, shaped for the UI — plus
+ * the statuses they can be moved between.
+ *
+ * Paged because the whole list outgrew Lambda's 6 MB response cap: each
+ * application carries its JD, built resume, letter and review. A page is at
+ * most `limit` rows *and* at most MAX_RESPONSE_BYTES, whichever comes first,
+ * so a handful of very large applications can't push one page over either.
+ * `nextOffset` is null on the last page.
  *
  * The statuses ride along with the list rather than getting their own endpoint:
  * the dashboard already makes this call on load, and a second round trip for a
  * list that changes with a migration would be an invocation and a Neon query
  * per page view for nothing.
  */
-export const listJobApplications = async (userId) => {
+export const listJobApplications = async (userId, { limit, offset } = {}) => {
+    const size = Math.min(Math.max(Number.parseInt(limit, 10) || LIST_PAGE_SIZE, 1), LIST_PAGE_SIZE)
+    const start = Math.max(Number.parseInt(offset, 10) || 0, 0)
+
+    // One extra row says whether there is a next page without a COUNT query.
     const [rows, statuses] = await Promise.all([
-        listJobApplicationRows(userId),
+        listJobApplicationRows(userId, { limit: size + 1, offset: start }),
         listStatusValues(),
     ])
-    return { applications: rows.map(shapeApplication), statuses }
+
+    const applications = []
+    let bytes = 0
+    for (const row of rows.slice(0, size)) {
+        const app = shapeApplication(row)
+        const appBytes = Buffer.byteLength(JSON.stringify(app), "utf8")
+        // Always take at least one, or a single oversized row would stall paging.
+        if (applications.length > 0 && bytes + appBytes > MAX_RESPONSE_BYTES) break
+        applications.push(app)
+        bytes += appBytes
+    }
+
+    const more = applications.length < rows.length
+    return { applications, statuses, nextOffset: more ? start + applications.length : null }
 }
