@@ -176,12 +176,16 @@ export const getJobApplication = async (user_id, id) => {
     return row ?? null
 }
 
-/** All of a user's applications, newest first. */
-export const listJobApplications = async (user_id) => {
+/**
+ * One page of a user's applications, newest first. `id` breaks ties so a
+ * page boundary never falls between two rows with the same created_at.
+ */
+export const listJobApplications = async (user_id, { limit, offset = 0 }) => {
     return sql`
         SELECT * FROM job_applications
         WHERE user_id = ${user_id}
-        ORDER BY created_at DESC
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${limit} OFFSET ${offset}
     `
 }
 

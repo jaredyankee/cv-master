@@ -290,7 +290,10 @@ a wrong label, never a wrong request.
 `POST /job-application-background` (client supplies the row `id` as a UUID) →
 `private/objects/job-application.js` loads the dump, calls the model with
 `JOB_APPLICATION_TOOL`, and inserts the finished row. The UI polls
-`GET /job-application?id=…` until `{ ready: true }`; `GET /job-application` lists.
+`GET /job-application?id=…` until `{ ready: true }`; `GET /job-application` lists,
+paged (`offset`, `limit` ≤ 100, plus a 4 MB byte budget per page) because the
+full list outgrew Lambda's 6 MB response cap. The client follows `nextOffset`
+until it is null.
 The row is written only once the analysis exists, so `fit_level IS NULL` never
 appears. `job_application_status` is the user's lifecycle (draft → applied → …),
 not a processing state.

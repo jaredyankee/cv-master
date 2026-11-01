@@ -24,6 +24,39 @@ const LEADS_POLL_BUDGET_MS       = 5 * 60 * 1000
 const LETTER_POLL_BUDGET_MS      = 4 * 60 * 1000
 const REVIEW_POLL_BUDGET_MS      = 3 * 60 * 1000
 
+/**
+ * Every application, a page at a time. The list is paged server-side because
+ * the whole thing outgrew Lambda's 6 MB response cap.
+ *
+ * Pages are by offset, so an application created mid-load could repeat one
+ * across a boundary; deduping by id makes that harmless. A failed page keeps
+ * what already loaded rather than showing nothing.
+ *
+ * @param {() => boolean} isCancelled
+ * @returns {Promise<{ applications: object[]|null, statuses: string[]|null }>}
+ */
+async function fetchAllApplications(isCancelled) {
+    const byId = new Map()
+    let statuses = null
+    let offset = 0
+    let loadedAny = false
+    // Bounded so a server that never returns a null cursor can't loop forever.
+    for (let page = 0; page < 1000 && offset !== null && !isCancelled(); page++) {
+        const res = await appRequest(`/job-application?offset=${offset}&limit=100`, "GET")
+        if (!res.ok) {
+            console.error("Could not load applications page", offset, res.status)
+            break
+        }
+        const body = await res.json()
+        if (Array.isArray(body?.statuses)) statuses = body.statuses
+        if (!Array.isArray(body?.applications)) break
+        loadedAny = true
+        for (const app of body.applications) if (!byId.has(app.id)) byId.set(app.id, app)
+        offset = Number.isInteger(body.nextOffset) && body.nextOffset > offset ? body.nextOffset : null
+    }
+    return { applications: loadedAny ? [...byId.values()] : null, statuses }
+}
+
 /** The leads panel's state, or null if it couldn't be read. */
 async function fetchLeadState() {
     try {
@@ -162,10 +195,9 @@ function Workspace({ user, onSignOut }) {
                 if (dump_state === 'REVISE') setReviseFeedback({ revisions, questions })
 
                 try {
-                    const appsRes = await appRequest("/job-application", "GET")
-                    const apps = appsRes.ok ? await appsRes.json() : null
-                    if (!cancelled && Array.isArray(apps?.applications)) setApplications(apps.applications)
-                    if (!cancelled && Array.isArray(apps?.statuses)) setStatuses(apps.statuses)
+                    const { applications: apps, statuses } = await fetchAllApplications(() => cancelled)
+                    if (!cancelled && apps) setApplications(apps)
+                    if (!cancelled && statuses) setStatuses(statuses)
                 } catch (err) {
                     console.error("Could not load applications", err)
                 }

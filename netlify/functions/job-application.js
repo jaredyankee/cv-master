@@ -10,9 +10,13 @@ import { requireUser, authErrorResponse } from "../../private/lib/auth.js";
  *   GET /job-application?id=<uuid>  → { ready: false }
  *                                   → { ready: true, data: Application }
  *
- * List (dashboard load):
- *   GET /job-application            → { applications: Application[], statuses: string[] }
- *                                     applications newest first; statuses in pipeline order
+ * List (dashboard load), paged:
+ *   GET /job-application[?offset=<n>&limit=<n>]
+ *                                   → { applications: Application[], statuses: string[], nextOffset: number|null }
+ *                                     applications newest first; statuses in pipeline order.
+ *                                     limit defaults to and is capped at 100; a page is also
+ *                                     cut short to stay under Lambda's 6 MB response cap.
+ *                                     Fetch again from nextOffset until it is null.
  *
  * Save an edited built resume:
  *   PUT /job-application?id=<uuid>  → { ok: true, data: Application }
@@ -109,8 +113,8 @@ export async function handler(event) {
             return json(200, app ? { ready: true, data: app } : { ready: false });
         }
         const fn = fnRegistry("job-application:LIST");
-        // { applications, statuses }
-        return json(200, await fn(user.userId));
+        // { applications, statuses, nextOffset }
+        return json(200, await fn(user.userId, { limit: params.limit, offset: params.offset }));
     } catch (err) {
         console.error(`Error ${params.id ? "polling" : "listing"} job-application:`, err);
         return json(500, { message: "Internal server error" });
